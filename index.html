@@ -46,7 +46,7 @@ fetch(sheetURL)
       const address = r.c[4]?.v || "";
       const lat = r.c[5]?.v;
       const lng = r.c[6]?.v;
-      const addressLink = r.c[7]?.v || "";
+      const addressLink = r.c[4]?.v || "";
       const contact = r.c[8]?.v || "";
 
       if (!lat || !lng) return;
