@@ -26,6 +26,11 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap'
 }).addTo(map);
 
+function formatlink(url){
+  if(!url)return"#";
+  if (url.startsWith("http"))return url;
+  return "https://" + url;
+}
 fetch(sheetURL)
   .then(res => res.text())
   .then(text => {
