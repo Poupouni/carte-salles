@@ -1,252 +1,171 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<title>Carte des salles de concert</title>
+  <meta charset="UTF-8" />
+  <title>Carte des salles de concert</title>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 
-<style>
-html, body {
-  height: 100%;
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: #f4f6f8;
-}
+  <style>
+    body, html {
+      margin: 0;
+      height: 100%;
+      font-family: Arial, sans-serif;
+    }
 
-#app {
-  display: flex;
-  height: 100vh;
-}
+    #app {
+      display: flex;
+      height: 100vh;
+    }
 
-#map {
-  flex: 1;
-}
+    #map {
+      flex: 1;
+    }
 
-#panel {
-  width: 340px;
-  background: #ffffff;
-  padding: 15px;
-  overflow-y: auto;
-  box-shadow: -2px 0 10px rgba(0,0,0,0.1);
-}
+    #sidebar {
+      width: 320px;
+      padding: 10px;
+      overflow-y: auto;
+      background: #f8f9fa;
+      border-left: 1px solid #ddd;
+    }
 
-h2 {
-  margin-top: 0;
-  font-size: 20px;
-}
+    h2 {
+      margin-top: 10px;
+    }
 
-h3 {
-  margin-top: 20px;
-  font-size: 16px;
-  border-bottom: 1px solid #ddd;
-  padding-bottom: 5px;
-}
+    input[type="text"] {
+      width: 100%;
+      padding: 6px;
+      margin-bottom: 10px;
+    }
 
-input[type="text"] {
-  width: 100%;
-  padding: 8px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  margin-bottom: 10px;
-}
+    button {
+      width: 100%;
+      margin-bottom: 5px;
+      padding: 6px;
+      cursor: pointer;
+    }
 
-button {
-  width: 100%;
-  padding: 8px;
-  margin-bottom: 6px;
-  border: none;
-  border-radius: 6px;
-  background: #1976d2;
-  color: white;
-  cursor: pointer;
-}
+    .count {
+      font-weight: bold;
+      margin: 10px 0;
+    }
 
-button.secondary {
-  background: #555;
-}
+    @media (max-width: 768px) {
+      #app {
+        flex-direction: column;
+      }
 
-button:hover {
-  opacity: 0.9;
-}
+      #sidebar {
+        width: 100%;
+        height: 40%;
+      }
 
-.filter-group label {
-  display: flex;
-  justify-content: space-between;
-  padding: 4px 0;
-  font-size: 14px;
-}
-
-#count {
-  font-weight: bold;
-  margin-top: 10px;
-  color: #333;
-}
-
-@media (max-width: 768px) {
-  #panel {
-    position: absolute;
-    right: 0;
-    height: 100%;
-    z-index: 1000;
-  }
-}
-</style>
+      #map {
+        height: 60%;
+      }
+    }
+  </style>
 </head>
-
 <body>
 
 <div id="app">
   <div id="map"></div>
 
-  <div id="panel">
-    <h2>🎵 Salles de concert</h2>
-
+  <div id="sidebar">
+    <h2>Recherche</h2>
     <input type="text" id="searchInput" placeholder="Nom, ville, code postal">
 
     <button onclick="resetFilters()">Reset filtres</button>
-    <button class="secondary" onclick="viewFrance()">Vue France</button>
+    <button onclick="viewFrance()">Vue France</button>
 
-    <div id="count">Salles visibles : 0</div>
-
-    <h3>Pays</h3>
-    <button onclick="checkAll('country', true)">Tout cocher</button>
-    <button class="secondary" onclick="checkAll('country', false)">Tout décocher</button>
-    <div id="countryFilters" class="filter-group"></div>
-
-    <h3>Régions (France)</h3>
-    <button onclick="checkAll('region', true)">Tout cocher</button>
-    <button class="secondary" onclick="checkAll('region', false)">Tout décocher</button>
-    <div id="regionFilters" class="filter-group"></div>
+    <div class="count" id="count">Salles visibles : 0</div>
   </div>
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 
 <script>
-const sheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRavscAmLL9ZPZiwxwRzsmsuCEDvcja-YAgg5F2vzAb5gHpUHVyJmCYKD2ONIBPdmwgBfjMg_Ayf3o8/gviz/tq?tqx=out:json";
+  const sheetCSV =
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vRavscAmLL9ZPZiwxwRzsmsuCEDvcja-YAgg5F2vzAb5gHpUHVyJmCYKD2ONIBPdmwgBfjMg_Ayf3o8/pub?output=csv";
 
-const map = L.map("map").setView([46.5, 2.5], 6);
+  const map = L.map("map").setView([46.6, 2.5], 6);
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 18
-}).addTo(map);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "© OpenStreetMap"
+  }).addTo(map);
 
-let cluster = L.markerClusterGroup();
-let markers = [];
+  let markers = [];
 
-fetch(sheetURL)
-  .then(r => r.text())
-  .then(text => {
-    const json = JSON.parse(text.substring(47).slice(0, -2));
-    const rows = json.table.rows;
+  fetch(sheetCSV)
+    .then(res => res.text())
+    .then(csv => {
+      const rows = csv.split("\n").slice(1);
 
-    const countries = new Set();
-    const regions = new Set();
+      rows.forEach(row => {
+        const cols = row.split(",");
 
-    rows.forEach(r => {
-      const name = r.c[0]?.v || "";
-      const city = r.c[1]?.v || "";
-      const zip = r.c[2]?.v || "";
-      const lat = r.c[5]?.v;
-      const lng = r.c[6]?.v;
-      const country = r.c[10]?.v || "Inconnu";
-      const region = r.c[11]?.v || "Inconnue";
+        const name = cols[0];
+        const city = cols[1];
+        const zip = cols[2];
+        const lat = parseFloat(cols[5]);
+        const lng = parseFloat(cols[6]);
 
-      if (!lat || !lng) return;
+        if (!lat || !lng) return;
 
-      const marker = L.marker([lat, lng]);
+        const marker = L.marker([lat, lng]).addTo(map);
+        marker.data = { name, city, zip };
 
-      marker.bindPopup(`
-        <b>${name}</b><br>
-        ${city} ${zip}<br>
-        ${country}<br>
-        <small>${region}</small>
-      `);
+        marker.bindPopup(`
+          <strong>${name}</strong><br>
+          ${city} (${zip})
+        `);
 
-      marker.data = { name, city, zip, country, region };
+        markers.push(marker);
+      });
 
-      markers.push(marker);
-      cluster.addLayer(marker);
-
-      countries.add(country);
-      if (country === "France") regions.add(region);
+      updateCount();
     });
 
-    map.addLayer(cluster);
+  function updateCount() {
+    document.getElementById("count").innerText =
+      "Salles visibles : " + markers.length;
+  }
 
-    buildFilters("countryFilters", countries, "country");
-    buildFilters("regionFilters", regions, "region");
+  function resetFilters() {
+    document.getElementById("searchInput").value = "";
+    markers.forEach(m => m.addTo(map));
+    updateCount();
+  }
 
-    applyFilters();
+  function viewFrance() {
+    map.setView([46.6, 2.5], 6);
+  }
+
+  document.getElementById("searchInput").addEventListener("input", e => {
+    const search = e.target.value.toLowerCase();
+
+    let visible = 0;
+
+    markers.forEach(m => {
+      const d = m.data;
+      const match =
+        d.name.toLowerCase().includes(search) ||
+        d.city.toLowerCase().includes(search) ||
+        d.zip.toLowerCase().includes(search);
+
+      if (match) {
+        m.addTo(map);
+        visible++;
+      } else {
+        map.removeLayer(m);
+      }
+    });
+
+    document.getElementById("count").innerText =
+      "Salles visibles : " + visible;
   });
-
-function buildFilters(containerId, values, className) {
-  const container = document.getElementById(containerId);
-
-  values.forEach(value => {
-    const label = document.createElement("label");
-    label.innerHTML = `
-      ${value}
-      <input type="checkbox" class="${className}" value="${value}" checked>
-    `;
-    container.appendChild(label);
-  });
-}
-
-function applyFilters() {
-  const search = document.getElementById("searchInput").value.toLowerCase();
-
-  const activeCountries = [...document.querySelectorAll(".country:checked")].map(i => i.value);
-  const activeRegions = [...document.querySelectorAll(".region:checked")].map(i => i.value);
-
-  cluster.clearLayers();
-  let visible = 0;
-
-  markers.forEach(marker => {
-    const d = marker.data;
-
-    const matchSearch =
-      d.name.toLowerCase().includes(search) ||
-      d.city.toLowerCase().includes(search) ||
-      d.zip.toLowerCase().includes(search);
-
-    const matchCountry = activeCountries.length === 0 || activeCountries.includes(d.country);
-
-    const matchRegion =
-      d.country !== "France" ||
-      activeRegions.length === 0 ||
-      activeRegions.includes(d.region);
-
-    if (matchSearch && matchCountry && matchRegion) {
-      cluster.addLayer(marker);
-      visible++;
-    }
-  });
-
-  document.getElementById("count").innerText = `Salles visibles : ${visible}`;
-}
-
-function checkAll(type, state) {
-  document.querySelectorAll("." + type).forEach(cb => cb.checked = state);
-  applyFilters();
-}
-
-function resetFilters() {
-  document.querySelectorAll("input[type=checkbox]").forEach(cb => cb.checked = true);
-  document.getElementById("searchInput").value = "";
-  applyFilters();
-}
-
-function viewFrance() {
-  map.setView([46.5, 2.5], 6);
-}
-
-document.getElementById("searchInput").addEventListener("input", applyFilters);
-document.addEventListener("change", applyFilters);
 </script>
 
 </body>
