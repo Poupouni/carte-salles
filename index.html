@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Carte des salles</title>
+<title>Carte des salles de concert</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
@@ -36,7 +36,7 @@ input { width:100%; padding:6px; margin-bottom:6px; }
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
-const csvURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRavscAmLL9ZPZiwxwRzsmsuCEDvcja-YAgg5F2vzAb5gHpUHVyJmCYKD2ONIBPdmwgBfjMg_Ayf3o8/pub?gid=1916022294&single=true&output=csv";
+const sheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRavscAmLL9ZPZiwxwRzsmsuCEDvcja-YAgg5F2vzAb5gHpUHVyJmCYKD2ONIBPdmwgBfjMg_Ayf3o8/pub?gid=1916022294&single=true&output=tsv";
 
 const map = L.map("map").setView([46.8, 2.5], 6);
 
@@ -44,13 +44,13 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
 let markers = [];
 
-fetch(csvURL)
+fetch(sheetURL)
   .then(r => r.text())
   .then(text => {
     const rows = text.split("\n").slice(1);
 
     rows.forEach(row => {
-      const cols = row.split(",");
+      const cols = row.split("\t");
 
       const name = cols[0];
       const city = cols[1];
