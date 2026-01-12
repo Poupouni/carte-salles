@@ -10,55 +10,70 @@
 body, html {
   margin:0;
   height:100%;
-  font-family: Arial, sans-serif;
-  background:#f4f6f8;
+  font-family: "Segoe UI", Arial, sans-serif;
+  background:#f2f4f8;
 }
 
 #map { height:100vh; }
 
 #panel {
   position:absolute;
-  top:12px;
-  right:12px;
+  top:15px;
+  right:15px;
   background:white;
-  padding:14px;
+  padding:16px;
   width:280px;
   z-index:1000;
-  border-radius:12px;
-  box-shadow:0 6px 20px rgba(0,0,0,.15);
+  border-radius:16px;
+  box-shadow:0 10px 30px rgba(0,0,0,.15);
+  display:flex;
+  flex-direction:column;
+  gap:10px;
 }
 
-input, select, button {
+#panel input, 
+#panel select {
   width:100%;
-  padding:8px;
-  margin-bottom:8px;
-  border-radius:6px;
+  padding:10px;
+  border-radius:10px;
   border:1px solid #ddd;
   font-size:14px;
 }
 
 button {
-  background:#1976d2;
-  color:white;
+  width:100%;
+  padding:10px;
   border:none;
+  border-radius:12px;
+  font-weight:600;
   cursor:pointer;
-  font-weight:bold;
+  transition:0.2s;
 }
 
+#reset { background:#eee; }
+#france { background:#1e88e5; color:white; }
+
 button:hover {
-  background:#125ca1;
+  opacity:0.9;
+  transform:scale(0.98);
 }
 
 h4 {
-  margin:10px 0 6px;
-  font-size:14px;
+  margin:6px 0 0;
+  font-size:13px;
+  color:#555;
 }
 
 #count {
-  font-weight:bold;
-  margin-top:8px;
+  font-weight:700;
+  text-align:center;
+  padding:10px;
+  background:#f1f5ff;
+  border-radius:12px;
+  color:#1e88e5;
 }
 
+/* Mobile */
 @media (max-width: 768px) {
   #panel {
     width:100%;
@@ -66,20 +81,21 @@ h4 {
     left:0;
     bottom:0;
     top:auto;
-    border-radius:16px 16px 0 0;
+    border-radius:20px 20px 0 0;
   }
 
-  #map { height:60vh; }
+  #map { height:65vh; }
 }
 </style>
+
 </head>
 
 <body>
 
 <div id="panel">
-  <input id="search" placeholder="Nom, ville, code postal">
+  <input id="search" placeholder="🔍 Nom, ville, code postal">
 
-  <select id="department">
+  <select id="deptFilter">
     <option value="all">Tous les départements</option>
   </select>
 
