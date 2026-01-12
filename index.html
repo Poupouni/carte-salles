@@ -2,9 +2,11 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Carte des salles</title>
+<title>Carte des salles - PRO MAX</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css">
 
 <style>
 body, html {
@@ -17,7 +19,6 @@ body, html {
 #app {
   display: flex;
   height: 100vh;
-  width: 100vw;
 }
 
 #map {
@@ -32,12 +33,12 @@ body, html {
   border-left: 1px solid #ddd;
 }
 
-#filters h3 {
+h3 {
   margin: 10px 0 5px;
   font-size: 15px;
 }
 
-#filters input[type="text"] {
+input {
   width: 100%;
   padding: 6px;
   margin-bottom: 10px;
@@ -49,6 +50,12 @@ label {
   font-size: 13px;
   cursor: pointer;
   margin-bottom: 4px;
+}
+
+#count {
+  font-size: 13px;
+  color: #555;
+  margin-top: 10px;
 }
 </style>
 </head>
@@ -66,99 +73,81 @@ label {
 
     <h3>Régions</h3>
     <div id="regionFilters"></div>
+
+    <div id="count"></div>
   </div>
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 
 <script>
 const sheetURL = "https://docs.google.com/spreadsheets/d/1eihI2oIaFrH1-ro00QpUz_pGqMpG95-uh4Xy0hXwkC8/gviz/tq?tqx=out:json";
 
-const map = L.map('map').setView([48.8566, 2.3522], 6);
+const map = L.map('map').setView([47.5, 6], 6);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap'
 }).addTo(map);
 
+const cluster = L.markerClusterGroup();
 const markers = [];
-
-function formatLink(url) {
-  if (!url) return "#";
-  if (url.startsWith("http")) return url;
-  return "https://" + url;
-}
-
-async function getLocationInfo(lat, lng) {
-  const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-  const data = await res.json();
-
-  return {
-    country: data.address.country || "Inconnu",
-    region: data.address.state || "Inconnue"
-  };
-}
 
 fetch(sheetURL)
   .then(res => res.text())
-  .then(async text => {
+  .then(text => {
     const json = JSON.parse(text.substring(47).slice(0, -2));
     const rows = json.table.rows;
 
     const countries = new Set();
     const regions = new Set();
 
-    for (const r of rows) {
+    rows.forEach(r => {
       const name = r.c[0]?.v || "";
       const city = r.c[1]?.v || "";
       const zip = r.c[2]?.v || "";
-      const addressLink = r.c[4]?.v || "";
+      const mapLink = r.c[4]?.v || "";
       const lat = r.c[5]?.v;
       const lng = r.c[6]?.v;
       const contact = r.c[8]?.v || "";
-      const link = r.c[9]?.v || "";
+      const contactLink = r.c[9]?.v || "";
+      const country = r.c[10]?.v || "France";
+      const region = r.c[11]?.v || "Autre";
 
-      if (!lat || !lng) continue;
+      if (!lat || !lng) return;
 
-      const geo = await getLocationInfo(lat, lng);
-
-      countries.add(geo.country);
-      regions.add(geo.region);
+      countries.add(country);
+      regions.add(region);
 
       const marker = L.marker([lat, lng]).bindPopup(`
         <strong>${name}</strong><br>
         ${zip} ${city}<br><br>
-        <a href="${formatLink(addressLink)}" target="_blank">📍 Voir l'adresse</a><br>
-        <a href="${formatLink(link)}" target="_blank">📩 Contact</a><br><br>
+        <a href="${mapLink}" target="_blank">📍 Adresse</a><br>
+        <a href="${contactLink}" target="_blank">📩 Contact</a><br>
         <em>${contact}</em>
       `);
 
-      marker.data = {
-        name, city, zip,
-        country: geo.country,
-        region: geo.region
-      };
+      marker.data = { name, city, zip, country, region };
 
       markers.push(marker);
-      marker.addTo(map);
-    }
+      cluster.addLayer(marker);
+    });
 
+    map.addLayer(cluster);
     createFilters([...countries], [...regions]);
+    updateCount(markers.length);
   });
 
 function createFilters(countries, regions) {
-  const countryDiv = document.getElementById("countryFilters");
-  const regionDiv = document.getElementById("regionFilters");
+  const cDiv = document.getElementById("countryFilters");
+  const rDiv = document.getElementById("regionFilters");
 
   countries.sort().forEach(c => {
-    countryDiv.innerHTML += `
-      <label><input type="checkbox" checked value="${c}" class="countryFilter"> ${c}</label>
-    `;
+    cDiv.innerHTML += `<label><input type="checkbox" checked value="${c}" class="country"> ${c}</label>`;
   });
 
   regions.sort().forEach(r => {
-    regionDiv.innerHTML += `
-      <label><input type="checkbox" checked value="${r}" class="regionFilter"> ${r}</label>
-    `;
+    rDiv.innerHTML += `<label><input type="checkbox" checked value="${r}" class="region"> ${r}</label>`;
   });
 
   document.querySelectorAll("input").forEach(i => {
@@ -168,9 +157,12 @@ function createFilters(countries, regions) {
 
 function applyFilters() {
   const search = document.getElementById("searchInput").value.toLowerCase();
+  const activeCountries = [...document.querySelectorAll(".country:checked")].map(i => i.value);
+  const activeRegions = [...document.querySelectorAll(".region:checked")].map(i => i.value);
 
-  const activeCountries = [...document.querySelectorAll(".countryFilter:checked")].map(i => i.value);
-  const activeRegions = [...document.querySelectorAll(".regionFilter:checked")].map(i => i.value);
+  cluster.clearLayers();
+
+  let visible = 0;
 
   markers.forEach(marker => {
     const d = marker.data;
@@ -184,11 +176,16 @@ function applyFilters() {
     const matchRegion = activeRegions.includes(d.region);
 
     if (matchSearch && matchCountry && matchRegion) {
-      marker.addTo(map);
-    } else {
-      map.removeLayer(marker);
+      cluster.addLayer(marker);
+      visible++;
     }
   });
+
+  updateCount(visible);
+}
+
+function updateCount(n) {
+  document.getElementById("count").innerText = `Salles visibles : ${n}`;
 }
 </script>
 
