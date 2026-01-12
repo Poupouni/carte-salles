@@ -62,7 +62,7 @@ button { margin:3px 3px 6px 0; padding:4px 8px; font-size:12px; }
 <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 
 <script>
-const sheetURL = "https://docs.google.com/spreadsheets/d/1eihI2oIaFrH1-ro00QpUz_pGqMpG95-uh4Xy0hXwkC8/gviz/tq?tqx=out:json";
+const sheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRavscAmLL9ZPZiwxwRzsmsuCEDvcja-YAgg5F2vzAb5gHpUHVyJmCYKD2ONIBPdmwgBfjMg_Ayf3o8/pub?gid=1916022294&single=true&output=tsv";
 
 const map = L.map('map').setView([47.5, 6], 6);
 
@@ -76,28 +76,29 @@ const markers = [];
 fetch(sheetURL)
 .then(res => res.text())
 .then(text => {
-  const json = JSON.parse(text.substring(47).slice(0, -2));
-  const rows = json.table.rows;
+  const lines = text.split("\n").slice(1);
 
   const countries = new Set();
   const regions = new Set();
   const depts = new Set();
 
-  rows.forEach(r => {
-    const name = r.c[0]?.v || "";
-    const city = r.c[1]?.v || "";
-    const zip = r.c[2]?.v || "";
-    const mapLink = r.c[4]?.v || "";
-    const lat = r.c[5]?.v;
-    const lng = r.c[6]?.v;
-    const contact = r.c[8]?.v || "";
-    const contactLink = r.c[9]?.v || "";
-    const country = r.c[10]?.v || "France";
-    const region = r.c[11]?.v || "Autre";
+  lines.forEach(line => {
+    const cols = line.split("\t");
+
+    const name = cols[0] || "";
+    const city = cols[1] || "";
+    const zip = cols[2] || "";
+    const mapLink = cols[4] || "";
+    const lat = parseFloat(cols[5]);
+    const lng = parseFloat(cols[6]);
+    const contact = cols[8] || "";
+    const contactLink = cols[9] || "";
+    const country = cols[10] || "France";
+    const region = cols[11] || "Autre";
 
     if (!lat || !lng) return;
 
-    const dept = zip.substring(0,2);
+    const dept = zip.substring(0, 2);
 
     countries.add(country);
     if (country === "France") regions.add(region);
