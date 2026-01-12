@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Carte des salles - France Focus</title>
+<title>Carte des salles - PRO MAX</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css">
@@ -12,6 +12,7 @@
 body, html { margin:0; padding:0; font-family:Arial; height:100%; }
 #app { display:flex; height:100vh; }
 #map { flex:1; }
+
 #filters {
   width:320px;
   background:#fff;
@@ -23,11 +24,30 @@ body, html { margin:0; padding:0; font-family:Arial; height:100%; }
 h3 { margin:10px 0 5px; font-size:15px; }
 input { width:100%; padding:6px; margin-bottom:10px; border:1px solid #ccc; }
 label { display:block; font-size:13px; cursor:pointer; margin-bottom:4px; }
-button { margin:3px 3px 6px 0; padding:4px 8px; font-size:12px; }
 
+button {
+  margin:3px 3px 6px 0;
+  padding:5px 8px;
+  font-size:12px;
+  cursor:pointer;
+}
+
+#counter {
+  font-size:13px;
+  font-weight:bold;
+  margin:10px 0;
+  color:#333;
+}
+
+/* MOBILE */
 @media (max-width:768px) {
   #app { flex-direction:column; }
-  #filters { width:100%; max-height:40vh; border-left:none; border-top:1px solid #ddd; }
+  #filters {
+    width:100%;
+    max-height:40vh;
+    border-left:none;
+    border-top:1px solid #ddd;
+  }
   #map { height:60vh; }
 }
 </style>
@@ -40,6 +60,13 @@ button { margin:3px 3px 6px 0; padding:4px 8px; font-size:12px; }
   <div id="filters">
     <h3>Recherche</h3>
     <input type="text" id="searchInput" placeholder="Nom, ville, code postal...">
+
+    <div>
+      <button onclick="resetFilters()">Reset filtres</button>
+      <button onclick="viewFrance()">Vue France</button>
+    </div>
+
+    <div id="counter">Salles visibles : 0</div>
 
     <h3>Pays</h3>
     <button onclick="checkAll('country', true)">Tout cocher</button>
@@ -70,7 +97,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution:'&copy; OpenStreetMap'
 }).addTo(map);
 
-const cluster = L.markerClusterGroup();
+let cluster = L.markerClusterGroup();
 const markers = [];
 
 fetch(sheetURL)
@@ -98,7 +125,7 @@ fetch(sheetURL)
 
     if (!lat || !lng) return;
 
-    const dept = zip.substring(0, 2);
+    const dept = zip.substring(0,2);
 
     countries.add(country);
     if (country === "France") regions.add(region);
@@ -120,6 +147,7 @@ fetch(sheetURL)
 
   map.addLayer(cluster);
   createFilters([...countries], [...regions], [...depts]);
+  updateCounter(markers.length);
 });
 
 function createFilters(countries, regions, depts) {
@@ -150,7 +178,10 @@ function applyFilters() {
   const activeRegions = [...document.querySelectorAll(".region:checked")].map(i => i.value);
   const activeDepts = [...document.querySelectorAll(".dept:checked")].map(i => i.value);
 
-  cluster.clearLayers();
+  map.removeLayer(cluster);
+  cluster = L.markerClusterGroup();
+
+  let visible = 0;
 
   markers.forEach(marker => {
     const d = marker.data;
@@ -166,16 +197,21 @@ function applyFilters() {
 
     if (matchSearch && matchCountry && matchRegion && matchDept) {
       cluster.addLayer(marker);
+      visible++;
     }
   });
+
+  map.addLayer(cluster);
+  updateCounter(visible);
+}
+
+function updateCounter(n) {
+  document.getElementById("counter").innerText = `Salles visibles : ${n}`;
 }
 
 function checkAll(type, state) {
-  document.querySelectorAll("." + type).forEach(cb => {
-    cb.checked = state;
-  });
+  document.querySelectorAll("." + type).forEach(cb => cb.checked = state);
 
-  // Si on recoché France → on recoché régions + départements
   if (type === "country" && state === true) {
     document.querySelectorAll(".region").forEach(cb => cb.checked = true);
     document.querySelectorAll(".dept").forEach(cb => cb.checked = true);
@@ -184,6 +220,15 @@ function checkAll(type, state) {
   applyFilters();
 }
 
+function resetFilters() {
+  document.getElementById("searchInput").value = "";
+  document.querySelectorAll("input[type=checkbox]").forEach(cb => cb.checked = true);
+  applyFilters();
+}
+
+function viewFrance() {
+  map.setView([46.5, 2.5], 6);
+}
 </script>
 
 </body>
