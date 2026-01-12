@@ -118,10 +118,10 @@ fetch(sheetURL)
       const name = cols[0];
       const city = cols[1];
       const zip = cols[2];
-      const lat = parseFloat(cols[5]);
-      const lng = parseFloat(cols[6]);
+      const lat = parseFloat(cols[5].replace(",", "."));
+      const lng = parseFloat(cols[6].replace(",", "."));
 
-      if (isNaN(lat) || isNaN(lng) || !zip) return;
+      if (isNaN(lat) || isNaN(lng)) return;
 
       const dept = zip.substring(0, 2);
 
