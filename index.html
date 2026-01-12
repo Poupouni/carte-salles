@@ -7,16 +7,8 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
 <style>
-body, html {
-  margin:0;
-  height:100%;
-  font-family: Arial, sans-serif;
-  background:#f2f2f2;
-}
-
-#map {
-  height:100vh;
-}
+body, html { margin:0; height:100%; font-family: Arial; }
+#map { height:100vh; }
 
 #panel {
   position:absolute;
@@ -24,42 +16,39 @@ body, html {
   right:10px;
   background:white;
   padding:12px;
-  width:280px;
+  width:260px;
   z-index:1000;
   border-radius:12px;
-  box-shadow:0 4px 15px rgba(0,0,0,.25);
+  box-shadow:0 2px 12px rgba(0,0,0,.25);
 }
 
-input, select, button {
+input {
   width:100%;
   padding:8px;
   margin-bottom:8px;
   border-radius:6px;
   border:1px solid #ccc;
-  font-size:14px;
 }
 
 button {
+  width:100%;
+  padding:8px;
+  margin-bottom:8px;
+  border:none;
+  border-radius:6px;
   background:#1e88e5;
   color:white;
-  border:none;
   cursor:pointer;
+  font-weight:bold;
 }
 
 button:hover {
   background:#1565c0;
 }
 
-h4 {
-  margin:10px 0 4px;
-  font-size:14px;
-  color:#333;
-}
-
 #count {
   font-weight:bold;
   margin-top:8px;
-  color:#222;
 }
 
 @media (max-width: 768px) {
@@ -69,7 +58,7 @@ h4 {
     left:0;
     bottom:0;
     top:auto;
-    border-radius:14px 14px 0 0;
+    border-radius:16px 16px 0 0;
   }
 
   #map {
@@ -84,10 +73,6 @@ h4 {
 <div id="panel">
   <input id="search" placeholder="Nom, ville, code postal">
 
-  <select id="department">
-    <option value="">Tous les départements</option>
-  </select>
-
   <button id="reset">Reset filtres</button>
   <button id="france">Vue France</button>
 
@@ -99,81 +84,62 @@ h4 {
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
-const sheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRavscAmLL9ZPZiwxwRzsmsuCEDvcja-YAgg5F2vzAb5gHpUHVyJmCYKD2ONIBPdmwgBfjMg_Ayf3o8/pub?gid=1916022294&single=true&output=json";
-
+const sheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRavscAmLL9ZPZiwxwRzsmsuCEDvcja-YAgg5F2vzAb5gHpUHVyJmCYKD2ONIBPdmwgBfjMg_Ayf3o8/pub?gid=1916022294&single=true&output=tsv";
 
 const map = L.map("map").setView([46.8, 2.5], 6);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
 let markers = [];
-let departments = new Set();
 
 fetch(sheetURL)
-  .then(r => r.json())
-  .then(data => {
-    const rows = data.feed.entry;
+  .then(r => r.text())
+  .then(text => {
 
-    rows.forEach(r => {
-      const name = r["gsx$salle"]?.$t;
-      const city = r["gsx$ville"]?.$t;
-      const zip = r["gsx$codespostaux"]?.$t;
-      const lat = parseFloat(r["gsx$latitude"]?.$t);
-      const lng = parseFloat(r["gsx$longitude"]?.$t);
+    const rows = text
+      .split("\n")
+      .filter(r => r.trim() !== "");
 
-      if (!lat || !lng) return;
+    rows.shift(); // enlève l'en-tête
 
-      const dept = zip ? zip.substring(0,2) : "??";
+    rows.forEach(row => {
+      const cols = row.split("\t");
+
+      if (cols.length < 7) return;
+
+      const name = cols[0]?.trim();
+      const city = cols[1]?.trim();
+      const zip  = cols[2]?.trim();
+      const lat  = parseFloat(cols[5]);
+      const lng  = parseFloat(cols[6]);
+
+      if (!name || !city || isNaN(lat) || isNaN(lng)) return;
 
       const m = L.marker([lat, lng])
         .bindPopup(`<b>${name}</b><br>${city} ${zip}`)
         .addTo(map);
 
-      m.data = { name, city, zip, dept };
+      m.data = { name, city, zip };
       markers.push(m);
-      departments.add(dept);
-    });
-
-    const select = document.getElementById("department");
-    [...departments].sort().forEach(d => {
-      const opt = document.createElement("option");
-      opt.value = d;
-      opt.textContent = "Département " + d;
-      select.appendChild(opt);
     });
 
     document.getElementById("count").innerText = "Salles : " + markers.length;
   });
 
-    // Remplir la liste des départements
-    const select = document.getElementById("department");
-    [...departments].sort().forEach(d => {
-      const opt = document.createElement("option");
-      opt.value = d;
-      opt.textContent = "Département " + d;
-      select.appendChild(opt);
-    });
 
-    document.getElementById("count").innerText = "Salles : " + markers.length;
-  });
-
-function applyFilters() {
+// Recherche
+document.getElementById("search").addEventListener("input", () => {
   const q = document.getElementById("search").value.toLowerCase();
-  const dept = document.getElementById("department").value;
-
   let visible = 0;
 
   markers.forEach(m => {
     const d = m.data;
-
-    const matchSearch =
+    const match =
       d.name.toLowerCase().includes(q) ||
       d.city.toLowerCase().includes(q) ||
       d.zip.toLowerCase().includes(q);
 
-    const matchDept = dept === "" || d.dept === dept;
-
-    if (matchSearch && matchDept) {
+    if (match) {
       m.addTo(map);
       visible++;
     } else {
@@ -182,19 +148,16 @@ function applyFilters() {
   });
 
   document.getElementById("count").innerText = "Salles : " + visible;
-}
+});
 
-document.getElementById("search").addEventListener("input", applyFilters);
-document.getElementById("department").addEventListener("change", applyFilters);
 
 // Reset filtres
 document.getElementById("reset").addEventListener("click", () => {
   document.getElementById("search").value = "";
-  document.getElementById("department").value = "";
-
   markers.forEach(m => m.addTo(map));
   document.getElementById("count").innerText = "Salles : " + markers.length;
 });
+
 
 // Vue France
 document.getElementById("france").addEventListener("click", () => {
