@@ -1,6 +1,3 @@
-<script>
-alert("JS OK");
-</script>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -10,111 +7,247 @@ alert("JS OK");
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
   <style>
-    body, html { margin: 0; height: 100%; font-family: Arial, sans-serif; }
-    #app { display: flex; height: 100vh; }
-    #map { flex: 1; }
+    body, html {
+      margin: 0;
+      height: 100%;
+      font-family: Arial, sans-serif;
+    }
+
+    #app {
+      display: flex;
+      height: 100vh;
+    }
+
+    #map {
+      flex: 1;
+    }
+
     #sidebar {
       width: 320px;
-      padding: 10px;
-      background: #f4f4f4;
+      background: #f5f5f5;
+      padding: 12px;
       overflow-y: auto;
       border-left: 1px solid #ccc;
     }
-    input, button {
-      width: 100%;
-      padding: 6px;
+
+    h3 {
+      margin-top: 12px;
       margin-bottom: 6px;
     }
-    .count { font-weight: bold; margin: 10px 0; }
+
+    input, button {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+
+    .checkbox-group label {
+      display: block;
+      font-size: 13px;
+    }
+
+    .count {
+      font-weight: bold;
+      margin: 10px 0;
+    }
+
     @media (max-width: 768px) {
-      #app { flex-direction: column; }
-      #sidebar { width: 100%; height: 40%; }
-      #map { height: 60%; }
+      #app {
+        flex-direction: column;
+      }
+
+      #sidebar {
+        width: 100%;
+        height: 40%;
+      }
+
+      #map {
+        height: 60%;
+      }
     }
   </style>
 </head>
+
 <body>
 
 <div id="app">
   <div id="map"></div>
+
   <div id="sidebar">
-    <h2>Recherche</h2>
-    <input id="search" placeholder="Nom, ville, code postal">
-    <button onclick="reset()">Reset filtres</button>
-    <button onclick="viewFrance()">Vue France</button>
+    <h3>Recherche</h3>
+    <input id="searchInput" placeholder="Nom, ville, code postal">
+
+    <button id="resetBtn">Reset filtres</button>
+    <button id="franceBtn">Vue France</button>
+
     <div class="count" id="count">Salles visibles : 0</div>
+
+    <h3>Pays</h3>
+    <button id="checkAllCountries">Tout cocher</button>
+    <button id="uncheckAllCountries">Tout décocher</button>
+    <div id="countryFilters" class="checkbox-group"></div>
+
+    <h3>Régions (France)</h3>
+    <button id="checkAllRegions">Tout cocher</button>
+    <button id="uncheckAllRegions">Tout décocher</button>
+    <div id="regionFilters" class="checkbox-group"></div>
   </div>
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
-const sheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRavscAmLL9ZPZiwxwRzsmsuCEDvcja-YAgg5F2vzAb5gHpUHVyJmCYKD2ONIBPdmwgBfjMg_Ayf3o8/pub?output=csv";
+/* ================================
+   CONFIG
+================================ */
 
-const map = L.map("map").setView([46.6, 2.5], 6);
+const sheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRavscAmLL9ZPZiwxwRzsmsuCEDvcja-YAgg5F2vzAb5gHpUHVyJmCYKD2ONIBPdmwgBfjMg_Ayf3o8/gviz/tq?tqx=out:json&sheet=ListeContactSalleConcert - Feuille1";
+
+/* ================================
+   MAP INIT
+================================ */
+
+const map = L.map("map").setView([46.8, 2.5], 6);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "© OpenStreetMap"
 }).addTo(map);
 
-let markers = [];
+const markersLayer = L.layerGroup().addTo(map);
+
+let allMarkers = [];
+let activeCountries = new Set();
+let activeRegions = new Set();
+
+/* ================================
+   LOAD DATA
+================================ */
 
 fetch(sheetURL)
   .then(r => r.text())
-  .then(csv => {
-    const rows = csv.split("\n").slice(1);
+  .then(text => {
+    const json = JSON.parse(text.substring(47).slice(0, -2));
+    const rows = json.table.rows;
+
+    const countries = new Set();
+    const regions = new Set();
 
     rows.forEach(row => {
-      const cols = row.split(",");
+      const name = row.c[0]?.v;
+      const city = row.c[1]?.v;
+      const zip = row.c[2]?.v;
+      const lat = row.c[5]?.v;
+      const lng = row.c[6]?.v;
+      const country = row.c[10]?.v || "Inconnu";
+      const region = row.c[11]?.v || "Inconnue";
 
-      const name = cols[0];
-      const lat = parseFloat(cols[5]);
-      const lng = parseFloat(cols[6]);
+      if (!lat || !lng || !name) return;
 
-      if (!lat || !lng) return;
+      const marker = L.marker([lat, lng])
+        .bindPopup(`<b>${name}</b><br>${city} (${zip})<br>${region} - ${country}`);
 
-      const m = L.marker([lat, lng]).addTo(map);
-      m.data = { name };
+      marker.data = { name, city, zip, country, region };
 
-      m.bindPopup(`<strong>${name}</strong>`);
+      allMarkers.push(marker);
 
-      markers.push(m);
+      countries.add(country);
+      if (country === "France") regions.add(region);
     });
 
-    updateCount();
+    buildFilters("country", countries, "countryFilters");
+    buildFilters("region", regions, "regionFilters");
+
+    activeCountries = new Set(countries);
+    activeRegions = new Set(regions);
+
+    applyFilters();
   });
 
-function updateCount() {
-  document.getElementById("count").innerText =
-    "Salles visibles : " + markers.length;
+/* ================================
+   FILTER UI
+================================ */
+
+function buildFilters(type, values, containerId) {
+  const container = document.getElementById(containerId);
+
+  values.forEach(val => {
+    const label = document.createElement("label");
+    const cb = document.createElement("input");
+
+    cb.type = "checkbox";
+    cb.checked = true;
+    cb.dataset.type = type;
+    cb.value = val;
+
+    cb.addEventListener("change", applyFilters);
+
+    label.appendChild(cb);
+    label.append(" " + val);
+
+    container.appendChild(label);
+  });
 }
 
-function reset() {
-  document.getElementById("search").value = "";
-  markers.forEach(m => m.addTo(map));
-  updateCount();
-}
+/* ================================
+   APPLY FILTERS
+================================ */
 
-function viewFrance() {
-  map.setView([46.6, 2.5], 6);
-}
+function applyFilters() {
+  const search = document.getElementById("searchInput").value.toLowerCase();
 
-document.getElementById("search").addEventListener("input", e => {
-  const s = e.target.value.toLowerCase();
+  activeCountries = new Set([...document.querySelectorAll("input[data-type='country']:checked")].map(cb => cb.value));
+  activeRegions = new Set([...document.querySelectorAll("input[data-type='region']:checked")].map(cb => cb.value));
+
+  markersLayer.clearLayers();
+
   let visible = 0;
 
-  markers.forEach(m => {
-    if (m.data.name.toLowerCase().includes(s)) {
-      m.addTo(map);
+  allMarkers.forEach(marker => {
+    const d = marker.data;
+
+    const matchSearch =
+      d.name.toLowerCase().includes(search) ||
+      d.city.toLowerCase().includes(search) ||
+      d.zip.toLowerCase().includes(search);
+
+    const matchCountry = activeCountries.has(d.country);
+    const matchRegion = d.country !== "France" || activeRegions.has(d.region);
+
+    if (matchSearch && matchCountry && matchRegion) {
+      markersLayer.addLayer(marker);
       visible++;
-    } else {
-      map.removeLayer(m);
     }
   });
 
-  document.getElementById("count").innerText =
-    "Salles visibles : " + visible;
-});
+  document.getElementById("count").innerText = "Salles visibles : " + visible;
+}
+
+/* ================================
+   BUTTONS
+================================ */
+
+document.getElementById("searchInput").addEventListener("input", applyFilters);
+
+document.getElementById("resetBtn").onclick = () => {
+  document.querySelectorAll("input[type='checkbox']").forEach(cb => cb.checked = true);
+  document.getElementById("searchInput").value = "";
+  applyFilters();
+};
+
+document.getElementById("franceBtn").onclick = () => {
+  map.setView([46.8, 2.5], 6);
+};
+
+document.getElementById("checkAllCountries").onclick = () => toggleAll("country", true);
+document.getElementById("uncheckAllCountries").onclick = () => toggleAll("country", false);
+document.getElementById("checkAllRegions").onclick = () => toggleAll("region", true);
+document.getElementById("uncheckAllRegions").onclick = () => toggleAll("region", false);
+
+function toggleAll(type, state) {
+  document.querySelectorAll(`input[data-type='${type}']`).forEach(cb => cb.checked = state);
+  applyFilters();
+}
 </script>
 
 </body>
