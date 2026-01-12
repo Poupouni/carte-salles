@@ -99,7 +99,8 @@ h4 {
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
-const sheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRavscAmLL9ZPZiwxwRzsmsuCEDvcja-YAgg5F2vzAb5gHpUHVyJmCYKD2ONIBPdmwgBfjMg_Ayf3o8/pub?gid=1916022294&single=true&output=tsv";
+const sheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRavscAmLL9ZPZiwxwRzsmsuCEDvcja-YAgg5F2vzAb5gHpUHVyJmCYKD2ONIBPdmwgBfjMg_Ayf3o8/pub?gid=1916022294&single=true&output=json";
+
 
 const map = L.map("map").setView([46.8, 2.5], 6);
 
@@ -109,23 +110,20 @@ let markers = [];
 let departments = new Set();
 
 fetch(sheetURL)
-  .then(r => r.text())
-  .then(text => {
-    const rows = text.split("\n").slice(1);
+  .then(r => r.json())
+  .then(data => {
+    const rows = data.feed.entry;
 
-    rows.forEach(row => {
-      const cols = row.split("\t");
+    rows.forEach(r => {
+      const name = r["gsx$salle"]?.$t;
+      const city = r["gsx$ville"]?.$t;
+      const zip = r["gsx$codespostaux"]?.$t;
+      const lat = parseFloat(r["gsx$latitude"]?.$t);
+      const lng = parseFloat(r["gsx$longitude"]?.$t);
 
-      const name = cols[0];
-      const city = cols[1];
-      const zip = cols[2];
-      const lat = parseFloat(cols[5]);
-      const lng = parseFloat(cols[6]);
+      if (!lat || !lng) return;
 
-      if (!lat || !lng || !zip) return;
-
-      const dept = zip.substring(0,2);
-      departments.add(dept);
+      const dept = zip ? zip.substring(0,2) : "??";
 
       const m = L.marker([lat, lng])
         .bindPopup(`<b>${name}</b><br>${city} ${zip}`)
@@ -133,7 +131,19 @@ fetch(sheetURL)
 
       m.data = { name, city, zip, dept };
       markers.push(m);
+      departments.add(dept);
     });
+
+    const select = document.getElementById("department");
+    [...departments].sort().forEach(d => {
+      const opt = document.createElement("option");
+      opt.value = d;
+      opt.textContent = "Département " + d;
+      select.appendChild(opt);
+    });
+
+    document.getElementById("count").innerText = "Salles : " + markers.length;
+  });
 
     // Remplir la liste des départements
     const select = document.getElementById("department");
