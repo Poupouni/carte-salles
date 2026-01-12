@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Carte des salles - PRO MAX</title>
+<title>Carte des salles - V2 ULTRA</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css">
@@ -27,7 +27,7 @@ body, html {
 
 #filters {
   width: 320px;
-  background: #ffffff;
+  background: #fff;
   padding: 15px;
   overflow-y: auto;
   border-left: 1px solid #ddd;
@@ -52,10 +52,29 @@ label {
   margin-bottom: 4px;
 }
 
-#count {
-  font-size: 13px;
-  color: #555;
-  margin-top: 10px;
+button {
+  margin: 3px 3px 6px 0;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* MOBILE */
+@media (max-width: 768px) {
+  #app {
+    flex-direction: column;
+  }
+
+  #filters {
+    width: 100%;
+    max-height: 40vh;
+    border-left: none;
+    border-top: 1px solid #ddd;
+  }
+
+  #map {
+    height: 60vh;
+  }
 }
 </style>
 </head>
@@ -68,18 +87,15 @@ label {
     <h3>Recherche</h3>
     <input type="text" id="searchInput" placeholder="Nom, ville, code postal...">
 
-<h3>Pays</h3>
-<button onclick="checkAll('country', true)">Tout cocher</button>
-<button onclick="checkAll('country', false)">Tout décocher</button>
-<div id="countryFilters"></div>
+    <h3>Pays</h3>
+    <button onclick="checkAll('country', true)">Tout cocher</button>
+    <button onclick="checkAll('country', false)">Tout décocher</button>
+    <div id="countryFilters"></div>
 
-<h3>Régions</h3>
-<button onclick="checkAll('region', true)">Tout cocher</button>
-<button onclick="checkAll('region', false)">Tout décocher</button>
-<div id="regionFilters"></div>
-
-
-    <div id="count"></div>
+    <h3>Régions</h3>
+    <button onclick="checkAll('region', true)">Tout cocher</button>
+    <button onclick="checkAll('region', false)">Tout décocher</button>
+    <div id="regionFilters"></div>
   </div>
 </div>
 
@@ -92,11 +108,36 @@ const sheetURL = "https://docs.google.com/spreadsheets/d/1eihI2oIaFrH1-ro00QpUz_
 const map = L.map('map').setView([47.5, 6], 6);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap'
+  attribution:'&copy; OpenStreetMap'
 }).addTo(map);
 
 const cluster = L.markerClusterGroup();
 const markers = [];
+
+const regionColors = {
+  "Bourgogne-Franche-Comté": "blue",
+  "Île-de-France": "red",
+  "Grand Est": "green",
+  "Auvergne-Rhône-Alpes": "orange",
+  "Hauts-de-France": "purple",
+  "Normandie": "cadetblue",
+  "Occitanie": "darkred",
+  "Nouvelle-Aquitaine": "darkgreen",
+  "Provence-Alpes-Côte d'Azur": "pink",
+  "Suisse": "black",
+  "Belgique": "darkblue",
+  "Autre": "gray"
+};
+
+function createIcon(color) {
+  return L.icon({
+    iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${color}.png`,
+    shadowUrl: "https://unpkg.com/leaflet/dist/images/marker-shadow.png",
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34]
+  });
+}
 
 fetch(sheetURL)
   .then(res => res.text())
@@ -124,7 +165,11 @@ fetch(sheetURL)
       countries.add(country);
       regions.add(region);
 
-      const marker = L.marker([lat, lng]).bindPopup(`
+      const color = regionColors[region] || "gray";
+
+      const marker = L.marker([lat, lng], {
+        icon: createIcon(color)
+      }).bindPopup(`
         <strong>${name}</strong><br>
         ${zip} ${city}<br><br>
         <a href="${mapLink}" target="_blank">📍 Adresse</a><br>
@@ -140,7 +185,6 @@ fetch(sheetURL)
 
     map.addLayer(cluster);
     createFilters([...countries], [...regions]);
-    updateCount(markers.length);
   });
 
 function createFilters(countries, regions) {
@@ -161,13 +205,11 @@ function createFilters(countries, regions) {
 }
 
 function applyFilters() {
-  const search = document.getElementById("searchInput").value.toLowerCase();
+  const search = document.getElementById("searchInput").value.trim().toLowerCase();
   const activeCountries = [...document.querySelectorAll(".country:checked")].map(i => i.value);
   const activeRegions = [...document.querySelectorAll(".region:checked")].map(i => i.value);
 
   cluster.clearLayers();
-
-  let visible = 0;
 
   markers.forEach(marker => {
     const d = marker.data;
@@ -182,25 +224,17 @@ function applyFilters() {
 
     if (matchSearch && matchCountry && matchRegion) {
       cluster.addLayer(marker);
-      visible++;
     }
   });
-
-  updateCount(visible);
 }
 
-function updateCount(n) {
-  document.getElementById("count").innerText = `Salles visibles : ${n}`;
-}
-</script>
-
-  function checkAll(type, state) {
+function checkAll(type, state) {
   document.querySelectorAll("." + type).forEach(cb => {
     cb.checked = state;
   });
   applyFilters();
 }
-
+</script>
 
 </body>
 </html>
