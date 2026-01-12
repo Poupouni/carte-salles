@@ -68,11 +68,16 @@ label {
     <h3>Recherche</h3>
     <input type="text" id="searchInput" placeholder="Nom, ville, code postal...">
 
-    <h3>Pays</h3>
-    <div id="countryFilters"></div>
+<h3>Pays</h3>
+<button onclick="checkAll('country', true)">Tout cocher</button>
+<button onclick="checkAll('country', false)">Tout décocher</button>
+<div id="countryFilters"></div>
 
-    <h3>Régions</h3>
-    <div id="regionFilters"></div>
+<h3>Régions</h3>
+<button onclick="checkAll('region', true)">Tout cocher</button>
+<button onclick="checkAll('region', false)">Tout décocher</button>
+<div id="regionFilters"></div>
+
 
     <div id="count"></div>
   </div>
@@ -188,6 +193,14 @@ function updateCount(n) {
   document.getElementById("count").innerText = `Salles visibles : ${n}`;
 }
 </script>
+
+  function checkAll(type, state) {
+  document.querySelectorAll("." + type).forEach(cb => {
+    cb.checked = state;
+  });
+  applyFilters();
+}
+
 
 </body>
 </html>
