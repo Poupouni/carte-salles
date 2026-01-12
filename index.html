@@ -2,29 +2,96 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Carte des salles</title>
+<title>Carte des salles de concert</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css">
 
 <style>
-html, body { height: 100%; margin: 0; }
-#app { display: flex; height: 100vh; }
-#map { flex: 1; }
-#filters {
-  width: 320px;
-  padding: 10px;
-  overflow-y: auto;
-  background: #fff;
-  border-left: 1px solid #ccc;
+html, body {
+  height: 100%;
+  margin: 0;
   font-family: Arial, sans-serif;
+  background: #f4f6f8;
 }
-input { width: 100%; padding: 6px; margin-bottom: 10px; }
-button { margin: 3px 0; width: 100%; }
-label { display: flex; justify-content: space-between; }
+
+#app {
+  display: flex;
+  height: 100vh;
+}
+
+#map {
+  flex: 1;
+}
+
+#panel {
+  width: 340px;
+  background: #ffffff;
+  padding: 15px;
+  overflow-y: auto;
+  box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+}
+
+h2 {
+  margin-top: 0;
+  font-size: 20px;
+}
+
+h3 {
+  margin-top: 20px;
+  font-size: 16px;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 5px;
+}
+
+input[type="text"] {
+  width: 100%;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  margin-bottom: 10px;
+}
+
+button {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 6px;
+  border: none;
+  border-radius: 6px;
+  background: #1976d2;
+  color: white;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: #555;
+}
+
+button:hover {
+  opacity: 0.9;
+}
+
+.filter-group label {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+#count {
+  font-weight: bold;
+  margin-top: 10px;
+  color: #333;
+}
+
 @media (max-width: 768px) {
-  #filters { position: absolute; right: 0; height: 100%; z-index: 1000; }
+  #panel {
+    position: absolute;
+    right: 0;
+    height: 100%;
+    z-index: 1000;
+  }
 }
 </style>
 </head>
@@ -34,29 +101,25 @@ label { display: flex; justify-content: space-between; }
 <div id="app">
   <div id="map"></div>
 
-  <div id="filters">
-    <h3>Recherche</h3>
+  <div id="panel">
+    <h2>🎵 Salles de concert</h2>
+
     <input type="text" id="searchInput" placeholder="Nom, ville, code postal">
 
     <button onclick="resetFilters()">Reset filtres</button>
-    <button onclick="viewFrance()">Vue France</button>
+    <button class="secondary" onclick="viewFrance()">Vue France</button>
 
-    <p id="count">Salles visibles : 0</p>
+    <div id="count">Salles visibles : 0</div>
 
     <h3>Pays</h3>
     <button onclick="checkAll('country', true)">Tout cocher</button>
-    <button onclick="checkAll('country', false)">Tout décocher</button>
-    <div id="countryFilters"></div>
+    <button class="secondary" onclick="checkAll('country', false)">Tout décocher</button>
+    <div id="countryFilters" class="filter-group"></div>
 
     <h3>Régions (France)</h3>
     <button onclick="checkAll('region', true)">Tout cocher</button>
-    <button onclick="checkAll('region', false)">Tout décocher</button>
-    <div id="regionFilters"></div>
-
-    <h3>Départements</h3>
-    <button onclick="checkAll('dept', true)">Tout cocher</button>
-    <button onclick="checkAll('dept', false)">Tout décocher</button>
-    <div id="deptFilters"></div>
+    <button class="secondary" onclick="checkAll('region', false)">Tout décocher</button>
+    <div id="regionFilters" class="filter-group"></div>
   </div>
 </div>
 
@@ -66,8 +129,11 @@ label { display: flex; justify-content: space-between; }
 <script>
 const sheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRavscAmLL9ZPZiwxwRzsmsuCEDvcja-YAgg5F2vzAb5gHpUHVyJmCYKD2ONIBPdmwgBfjMg_Ayf3o8/gviz/tq?tqx=out:json";
 
-const map = L.map('map').setView([46.5, 2.5], 6);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+const map = L.map("map").setView([46.5, 2.5], 6);
+
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 18
+}).addTo(map);
 
 let cluster = L.markerClusterGroup();
 let markers = [];
@@ -80,7 +146,6 @@ fetch(sheetURL)
 
     const countries = new Set();
     const regions = new Set();
-    const depts = new Set();
 
     rows.forEach(r => {
       const name = r.c[0]?.v || "";
@@ -90,53 +155,59 @@ fetch(sheetURL)
       const lng = r.c[6]?.v;
       const country = r.c[10]?.v || "Inconnu";
       const region = r.c[11]?.v || "Inconnue";
-      const dept = r.c[12]?.v || "Inconnu";
 
       if (!lat || !lng) return;
 
       const marker = L.marker([lat, lng]);
-      marker.bindPopup(`<b>${name}</b><br>${city} ${zip}`);
 
-      marker.data = { name, city, zip, country, region, dept };
+      marker.bindPopup(`
+        <b>${name}</b><br>
+        ${city} ${zip}<br>
+        ${country}<br>
+        <small>${region}</small>
+      `);
+
+      marker.data = { name, city, zip, country, region };
 
       markers.push(marker);
       cluster.addLayer(marker);
 
       countries.add(country);
-      if (country === "France") {
-        regions.add(region);
-        depts.add(dept);
-      }
+      if (country === "France") regions.add(region);
     });
 
     map.addLayer(cluster);
+
     buildFilters("countryFilters", countries, "country");
     buildFilters("regionFilters", regions, "region");
-    buildFilters("deptFilters", depts, "dept");
 
     applyFilters();
   });
 
-function buildFilters(container, values, cls) {
-  const div = document.getElementById(container);
-  values.forEach(v => {
+function buildFilters(containerId, values, className) {
+  const container = document.getElementById(containerId);
+
+  values.forEach(value => {
     const label = document.createElement("label");
-    label.innerHTML = `${v} <input type="checkbox" class="${cls}" value="${v}" checked>`;
-    div.appendChild(label);
+    label.innerHTML = `
+      ${value}
+      <input type="checkbox" class="${className}" value="${value}" checked>
+    `;
+    container.appendChild(label);
   });
 }
 
 function applyFilters() {
   const search = document.getElementById("searchInput").value.toLowerCase();
+
   const activeCountries = [...document.querySelectorAll(".country:checked")].map(i => i.value);
   const activeRegions = [...document.querySelectorAll(".region:checked")].map(i => i.value);
-  const activeDepts = [...document.querySelectorAll(".dept:checked")].map(i => i.value);
 
   cluster.clearLayers();
   let visible = 0;
 
-  markers.forEach(m => {
-    const d = m.data;
+  markers.forEach(marker => {
+    const d = marker.data;
 
     const matchSearch =
       d.name.toLowerCase().includes(search) ||
@@ -144,11 +215,14 @@ function applyFilters() {
       d.zip.toLowerCase().includes(search);
 
     const matchCountry = activeCountries.length === 0 || activeCountries.includes(d.country);
-    const matchRegion = d.country !== "France" || activeRegions.length === 0 || activeRegions.includes(d.region);
-    const matchDept = d.country !== "France" || activeDepts.length === 0 || activeDepts.includes(d.dept);
 
-    if (matchSearch && matchCountry && matchRegion && matchDept) {
-      cluster.addLayer(m);
+    const matchRegion =
+      d.country !== "France" ||
+      activeRegions.length === 0 ||
+      activeRegions.includes(d.region);
+
+    if (matchSearch && matchCountry && matchRegion) {
+      cluster.addLayer(marker);
       visible++;
     }
   });
