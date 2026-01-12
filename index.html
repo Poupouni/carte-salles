@@ -105,7 +105,12 @@ let departmentsSet = new Set();
 fetch(sheetURL)
   .then(r => r.text())
   .then(text => {
-    const rows = text.replace(/\r/g, "").split("\n").slice(1);
+    const rows = text
+  .replace(/\r/g, "")
+  .replace(/"\n/g, " ")
+  .replace(/\n"/g, " ")
+  .split("\n")
+  .slice(1);
 
     rows.forEach(row => {
       const cols = row.split("\t");
