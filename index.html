@@ -7,43 +7,51 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
 <style>
-body, html { margin:0; height:100%; font-family: Arial; }
+body, html {
+  margin:0;
+  height:100%;
+  font-family: Arial, sans-serif;
+  background:#f4f6f8;
+}
+
 #map { height:100vh; }
 
 #panel {
   position:absolute;
-  top:10px;
-  right:10px;
+  top:12px;
+  right:12px;
   background:white;
-  padding:12px;
-  width:260px;
+  padding:14px;
+  width:280px;
   z-index:1000;
   border-radius:12px;
-  box-shadow:0 2px 12px rgba(0,0,0,.25);
+  box-shadow:0 6px 20px rgba(0,0,0,.15);
 }
 
-input {
+input, select, button {
   width:100%;
   padding:8px;
   margin-bottom:8px;
   border-radius:6px;
-  border:1px solid #ccc;
+  border:1px solid #ddd;
+  font-size:14px;
 }
 
 button {
-  width:100%;
-  padding:8px;
-  margin-bottom:8px;
-  border:none;
-  border-radius:6px;
-  background:#1e88e5;
+  background:#1976d2;
   color:white;
+  border:none;
   cursor:pointer;
   font-weight:bold;
 }
 
 button:hover {
-  background:#1565c0;
+  background:#125ca1;
+}
+
+h4 {
+  margin:10px 0 6px;
+  font-size:14px;
 }
 
 #count {
@@ -61,9 +69,7 @@ button:hover {
     border-radius:16px 16px 0 0;
   }
 
-  #map {
-    height:60vh;
-  }
+  #map { height:60vh; }
 }
 </style>
 </head>
@@ -72,6 +78,10 @@ button:hover {
 
 <div id="panel">
   <input id="search" placeholder="Nom, ville, code postal">
+
+  <select id="department">
+    <option value="all">Tous les départements</option>
+  </select>
 
   <button id="reset">Reset filtres</button>
   <button id="france">Vue France</button>
@@ -87,59 +97,71 @@ button:hover {
 const sheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRavscAmLL9ZPZiwxwRzsmsuCEDvcja-YAgg5F2vzAb5gHpUHVyJmCYKD2ONIBPdmwgBfjMg_Ayf3o8/pub?gid=1916022294&single=true&output=tsv";
 
 const map = L.map("map").setView([46.8, 2.5], 6);
-
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
 let markers = [];
+let departmentsSet = new Set();
 
 fetch(sheetURL)
   .then(r => r.text())
   .then(text => {
-
-    const rows = text
-      .split("\n")
-      .filter(r => r.trim() !== "");
-
-    rows.shift(); // enlève l'en-tête
+    const rows = text.split("\n").slice(1);
 
     rows.forEach(row => {
       const cols = row.split("\t");
 
-      if (cols.length < 7) return;
+      const name = cols[0];
+      const city = cols[1];
+      const zip = cols[2];
+      const lat = parseFloat(cols[5]);
+      const lng = parseFloat(cols[6]);
 
-      const name = cols[0]?.trim();
-      const city = cols[1]?.trim();
-      const zip  = cols[2]?.trim();
-      const lat  = parseFloat(cols[5]);
-      const lng  = parseFloat(cols[6]);
+      if (!lat || !lng || !zip) return;
 
-      if (!name || !city || isNaN(lat) || isNaN(lng)) return;
+      const dept = zip.substring(0, 2);
 
       const m = L.marker([lat, lng])
         .bindPopup(`<b>${name}</b><br>${city} ${zip}`)
         .addTo(map);
 
-      m.data = { name, city, zip };
+      m.data = { name, city, zip, dept };
       markers.push(m);
+      departmentsSet.add(dept);
     });
 
-    document.getElementById("count").innerText = "Salles : " + markers.length;
+    // Remplir la liste des départements
+    const deptSelect = document.getElementById("department");
+    [...departmentsSet].sort().forEach(d => {
+      const opt = document.createElement("option");
+      opt.value = d;
+      opt.textContent = d;
+      deptSelect.appendChild(opt);
+    });
+
+    updateCount(markers.length);
   });
 
+function updateCount(n) {
+  document.getElementById("count").innerText = "Salles : " + n;
+}
 
-// Recherche
-document.getElementById("search").addEventListener("input", () => {
+function applyFilters() {
   const q = document.getElementById("search").value.toLowerCase();
+  const dept = document.getElementById("department").value;
+
   let visible = 0;
 
   markers.forEach(m => {
     const d = m.data;
-    const match =
+
+    const matchText =
       d.name.toLowerCase().includes(q) ||
       d.city.toLowerCase().includes(q) ||
       d.zip.toLowerCase().includes(q);
 
-    if (match) {
+    const matchDept = (dept === "all" || d.dept === dept);
+
+    if (matchText && matchDept) {
       m.addTo(map);
       visible++;
     } else {
@@ -147,17 +169,20 @@ document.getElementById("search").addEventListener("input", () => {
     }
   });
 
-  document.getElementById("count").innerText = "Salles : " + visible;
-});
+  updateCount(visible);
+}
 
+document.getElementById("search").addEventListener("input", applyFilters);
+document.getElementById("department").addEventListener("change", applyFilters);
 
 // Reset filtres
 document.getElementById("reset").addEventListener("click", () => {
   document.getElementById("search").value = "";
-  markers.forEach(m => m.addTo(map));
-  document.getElementById("count").innerText = "Salles : " + markers.length;
-});
+  document.getElementById("department").value = "all";
 
+  markers.forEach(m => m.addTo(map));
+  updateCount(markers.length);
+});
 
 // Vue France
 document.getElementById("france").addEventListener("click", () => {
