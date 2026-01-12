@@ -7,11 +7,40 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
 
 <style>
-  body, html { margin: 0; padding: 0; }
+  body, html { margin: 0; padding: 0; font-family: Arial; }
   #map { height: 100vh; width: 100vw; }
+
+  #filters {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1000;
+    background: white;
+    padding: 12px;
+    border-radius: 8px;
+    max-height: 90vh;
+    overflow-y: auto;
+    width: 280px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  }
+
+  input { width: 100%; margin-bottom: 8px; }
+  label { font-size: 13px; display: block; }
+  h3 { margin: 8px 0 4px; font-size: 14px; }
 </style>
 </head>
 <body>
+
+<div id="filters">
+  <h3>Recherche</h3>
+  <input type="text" id="searchInput" placeholder="Nom, ville, code postal...">
+
+  <h3>Pays</h3>
+  <div id="countryFilters"></div>
+
+  <h3>Régions</h3>
+  <div id="regionFilters"></div>
+</div>
 
 <div id="map"></div>
 
@@ -26,50 +55,116 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap'
 }).addTo(map);
 
+const markers = [];
+
 function formatLink(url) {
   if (!url) return "#";
   if (url.startsWith("http")) return url;
   return "https://" + url;
 }
 
+async function getLocationInfo(lat, lng) {
+  const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+  const data = await res.json();
+
+  return {
+    country: data.address.country || "Inconnu",
+    region: data.address.state || "Inconnue"
+  };
+}
+
 fetch(sheetURL)
   .then(res => res.text())
-  .then(text => {
+  .then(async text => {
     const json = JSON.parse(text.substring(47).slice(0, -2));
     const rows = json.table.rows;
 
-    rows.forEach(r => {
+    const countries = new Set();
+    const regions = new Set();
+
+    for (const r of rows) {
       const name = r.c[0]?.v || "";
       const city = r.c[1]?.v || "";
       const zip = r.c[2]?.v || "";
-      const link = r.c[9]?.v || "";
-      const address = r.c[4]?.v || "";
+      const addressLink = r.c[4]?.v || "";
       const lat = r.c[5]?.v;
       const lng = r.c[6]?.v;
-      const addressLink = r.c[4]?.v || "";
       const contact = r.c[8]?.v || "";
+      const link = r.c[9]?.v || "";
 
-      if (!lat || !lng) return;
+      if (!lat || !lng) continue;
 
-      L.marker([lat, lng])
-        .addTo(map)
-        .bindPopup(`
-          <strong>${name}</strong><br>
-          ${address}<br>
-          ${zip} ${city}<br><br>
+      const geo = await getLocationInfo(lat, lng);
 
-          <a href="${formatLink(link)}" target="_blank">🌐 Lien principal</a><br>
-          <a href="${formatLink(addressLink)}" target="_blank">📍 Voir l'adresse</a><br><br>
+      countries.add(geo.country);
+      regions.add(geo.region);
 
-          <em>Contact technique :</em><br>
-          ${contact}
-        `);
-    });
-  })
-  .catch(err => {
-    alert("Erreur de chargement du Google Sheet");
-    console.error(err);
+      const marker = L.marker([lat, lng]).bindPopup(`
+        <strong>${name}</strong><br>
+        ${zip} ${city}<br><br>
+        <a href="${formatLink(addressLink)}" target="_blank">📍 Voir l'adresse</a><br>
+        <a href="${formatLink(link)}" target="_blank">📩 Contact</a><br><br>
+        <em>${contact}</em>
+      `);
+
+      marker.data = {
+        name, city, zip,
+        country: geo.country,
+        region: geo.region
+      };
+
+      markers.push(marker);
+      marker.addTo(map);
+    }
+
+    createFilters([...countries], [...regions]);
   });
+
+function createFilters(countries, regions) {
+  const countryDiv = document.getElementById("countryFilters");
+  const regionDiv = document.getElementById("regionFilters");
+
+  countries.sort().forEach(c => {
+    countryDiv.innerHTML += `
+      <label><input type="checkbox" checked value="${c}" class="countryFilter"> ${c}</label>
+    `;
+  });
+
+  regions.sort().forEach(r => {
+    regionDiv.innerHTML += `
+      <label><input type="checkbox" checked value="${r}" class="regionFilter"> ${r}</label>
+    `;
+  });
+
+  document.querySelectorAll("input").forEach(i => {
+    i.addEventListener("input", applyFilters);
+  });
+}
+
+function applyFilters() {
+  const search = document.getElementById("searchInput").value.toLowerCase();
+
+  const activeCountries = [...document.querySelectorAll(".countryFilter:checked")].map(i => i.value);
+  const activeRegions = [...document.querySelectorAll(".regionFilter:checked")].map(i => i.value);
+
+  markers.forEach(marker => {
+    const d = marker.data;
+
+    const matchSearch =
+      d.name.toLowerCase().includes(search) ||
+      d.city.toLowerCase().includes(search) ||
+      d.zip.toLowerCase().includes(search);
+
+    const matchCountry = activeCountries.includes(d.country);
+    const matchRegion = activeRegions.includes(d.region);
+
+    if (matchSearch && matchCountry && matchRegion) {
+      marker.addTo(map);
+    } else {
+      map.removeLayer(marker);
+    }
+  });
+}
 </script>
 
 </body>
