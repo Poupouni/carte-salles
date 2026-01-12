@@ -129,6 +129,21 @@ document.getElementById("search").addEventListener("input", () => {
 
   document.getElementById("count").innerText = "Salles : " + visible;
 });
+
+// Reset filtres
+document.getElementById("reset").addEventListener("click", () => {
+  document.getElementById("search").value = "";
+
+  markers.forEach(m => m.addTo(map));
+
+  document.getElementById("count").innerText = "Salles : " + markers.length;
+});
+
+// Vue France
+document.getElementById("france").addEventListener("click", () => {
+  map.setView([46.8, 2.5], 6);
+});
+
 </script>
 
 </body>
