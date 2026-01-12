@@ -174,8 +174,16 @@ function checkAll(type, state) {
   document.querySelectorAll("." + type).forEach(cb => {
     cb.checked = state;
   });
+
+  // Si on recoché France → on recoché régions + départements
+  if (type === "country" && state === true) {
+    document.querySelectorAll(".region").forEach(cb => cb.checked = true);
+    document.querySelectorAll(".dept").forEach(cb => cb.checked = true);
+  }
+
   applyFilters();
 }
+
 </script>
 
 </body>
