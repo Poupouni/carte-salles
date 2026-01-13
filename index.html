@@ -2,80 +2,43 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Concert Map — Apple Clean</title>
+<title>Concert Map — Clean & Stable</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css">
 
 <style>
-:root{
-  --bg:#f5f5f7;
-  --card:rgba(255,255,255,.9);
-  --text:#111;
-  --accent:#007aff;
-}
-
-.dark{
-  --bg:#0a0a0c;
-  --card:rgba(20,20,25,.9);
-  --text:#fff;
-}
-
-*{box-sizing:border-box;font-family:Inter,system-ui;}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--text);}
-#map{height:100vh;}
+html,body{margin:0;height:100%;font-family:system-ui;background:#f5f5f7}
+#map{height:100vh}
 
 #ui{
-  position:absolute;
-  top:20px;left:20px;
-  width:320px;
-  background:var(--card);
-  backdrop-filter:blur(20px);
-  border-radius:24px;
-  padding:18px;
+  position:absolute;top:20px;left:20px;
+  width:300px;
+  background:white;
+  border-radius:20px;
+  padding:16px;
   box-shadow:0 20px 40px rgba(0,0,0,.25);
   z-index:1000;
-  animation:slide .8s ease;
 }
-
-@keyframes slide{from{opacity:0;transform:translateY(30px)}}
-
-h1{font-size:22px;margin:0 0 10px;font-weight:800;letter-spacing:-.5px;}
 
 input,select,button{
-  width:100%;
-  padding:12px;
-  margin-bottom:10px;
-  border-radius:14px;
-  border:none;
-  background:#e5e5ea;
-  font-size:14px;
+  width:100%;padding:10px;margin-bottom:8px;
+  border-radius:10px;border:none;background:#eee
 }
 
-.dark input,.dark select{background:#1c1c1e;color:white;}
-
-button{
-  background:var(--accent);
-  color:white;
-  font-weight:700;
-  cursor:pointer;
-  transition:.2s;
-}
-button:hover{opacity:.85}
-
-.row{display:flex;gap:10px;}
+button{background:#007aff;color:white;font-weight:700;cursor:pointer}
+.row{display:flex;gap:8px}
 .row button{flex:1}
 
-.stats{text-align:center;font-weight:800;font-size:14px;margin-top:8px;}
-.footer{text-align:center;font-size:11px;opacity:.6;margin-top:6px;}
+.stats{text-align:center;font-weight:800}
 </style>
 </head>
 
 <body>
 
 <div id="ui">
-  <h1>🎵 Concert Map</h1>
+  <h3>🎵 Concert Map</h3>
 
   <input id="search" placeholder="Nom, ville, code postal">
 
@@ -89,14 +52,10 @@ button:hover{opacity:.85}
   </select>
 
   <div class="row">
-    <button id="cluster">Clustering ON</button>
     <button id="geo">Autour de moi</button>
   </div>
 
-  <button id="theme">Mode sombre</button>
-
   <div class="stats" id="count">Lieux : 0</div>
-  <div class="footer">OpenStreetMap / Google Sheets</div>
 </div>
 
 <div id="map"></div>
@@ -109,27 +68,32 @@ const SHEET="https://docs.google.com/spreadsheets/d/e/2PACX-1vT2-8LzIag6O728CHEJ
 
 /* MAP */
 const map=L.map("map").setView([46.8,2.5],4);
-const light=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png");
-const dark=L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png");
-light.addTo(map);
-setTimeout(()=>map.setView([46.8,2.5],6),1200);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
 /* ICONS */
-const green=new L.Icon({iconUrl:"https://maps.gstatic.com/mapfiles/ms2/micons/green-dot.png",iconSize:[32,32]});
-const red=new L.Icon({iconUrl:"https://maps.gstatic.com/mapfiles/ms2/micons/red-dot.png",iconSize:[32,32]});
+const green=L.icon({
+  iconUrl:"https://maps.gstatic.com/mapfiles/ms2/micons/green-dot.png",
+  iconSize:[32,32]
+});
+const red=L.icon({
+  iconUrl:"https://maps.gstatic.com/mapfiles/ms2/micons/red-dot.png",
+  iconSize:[32,32]
+});
 
-/* GROUPS */
-let clusterGroup=L.markerClusterGroup({disableClusteringAtZoom:13});
-let normalGroup=L.layerGroup();
-let useCluster=true;
+/* CLUSTER */
+const clusterGroup=L.markerClusterGroup({
+  disableClusteringAtZoom:13,
+  showCoverageOnHover:false
+});
 map.addLayer(clusterGroup);
 
+/* DATA */
 let markers=[];
 
-/* CLEAN FILTER (NO ZOO) */
+/* ULTRA STRICT FILTER (ANTI ZOO / DISNEY) */
 const allowed=["concert","music","live","festival","club","theatre","théâtre","bar","venue","salle"];
 
-/* LOAD DATA */
+/* LOAD */
 fetch(SHEET).then(r=>r.text()).then(t=>{
   const rows=t.replace(/\r/g,"").split("\n").slice(1);
 
@@ -142,13 +106,10 @@ fetch(SHEET).then(r=>r.text()).then(t=>{
     const lat=parseFloat(c[4]);
     const lon=parseFloat(c[5]);
     const type=(c[6]||"").toLowerCase();
-    const site=c[7];
-    const maps=c[8];
-    const desc=c[9];
 
     if(!lat||!lon||!name) return;
 
-    // 🧹 Anti-zoo / anti-nawak
+    // 🧹 GROS MÉNAGE
     if(
       !allowed.some(k=>type.includes(k)) &&
       !allowed.some(k=>name.toLowerCase().includes(k))
@@ -159,13 +120,12 @@ fetch(SHEET).then(r=>r.text()).then(t=>{
     const popup=`
       <b>${name}</b><br>
       ${city||""} ${zip||""}<br>
-      ${type}<br><br>
-      ${desc||""}<br>
-      ${site?`<a href="${site}" target="_blank">🌐 Site</a><br>`:""}
-      ${maps?`<a href="${maps}" target="_blank">📍 Google Maps</a>`:""}
+      ${type}
     `;
 
-    const m=L.marker([lat,lon],{icon:isFestival?red:green}).bindPopup(popup);
+    const m=L.marker([lat,lon],{icon:isFestival?red:green})
+      .bindPopup(popup);
+
     m.data={name,city,zip,type};
     markers.push(m);
   });
@@ -176,9 +136,6 @@ fetch(SHEET).then(r=>r.text()).then(t=>{
 /* FILTER */
 function apply(){
   clusterGroup.clearLayers();
-  normalGroup.clearLayers();
-  map.removeLayer(clusterGroup);
-  map.removeLayer(normalGroup);
 
   const q=search.value.toLowerCase();
   const t=type.value;
@@ -198,39 +155,22 @@ function apply(){
 
     if(textMatch&&typeMatch){
       visible++;
-      useCluster?clusterGroup.addLayer(m):normalGroup.addLayer(m);
+      clusterGroup.addLayer(m);
     }
   });
 
-  map.addLayer(useCluster?clusterGroup:normalGroup);
   count.innerText="Lieux : "+visible;
 }
 
 search.oninput=apply;
 type.onchange=apply;
 
-/* CLUSTER */
-cluster.onclick=()=>{
-  useCluster=!useCluster;
-  cluster.innerText="Clustering "+(useCluster?"ON":"OFF");
-  apply();
-};
-
-/* THEME */
-let darkMode=false;
-theme.onclick=()=>{
-  darkMode=!darkMode;
-  map.removeLayer(darkMode?light:dark);
-  (darkMode?dark:light).addTo(map);
-  document.body.classList.toggle("dark",darkMode);
-};
-
 /* GEO */
-let locating=false, circle=null;
+let circle=null;
 geo.onclick=()=>{
-  if(locating){
+  if(circle){
     map.removeLayer(circle);
-    locating=false;
+    circle=null;
     geo.innerText="Autour de moi";
     return;
   }
@@ -238,8 +178,10 @@ geo.onclick=()=>{
   navigator.geolocation.getCurrentPosition(p=>{
     const {latitude,longitude}=p.coords;
     map.setView([latitude,longitude],12);
-    circle=L.circle([latitude,longitude],{radius:5000,color:"#007aff"}).addTo(map);
-    locating=true;
+    circle=L.circle([latitude,longitude],{
+      radius:5000,
+      color:"#007aff"
+    }).addTo(map);
     geo.innerText="Désactiver";
   });
 };
