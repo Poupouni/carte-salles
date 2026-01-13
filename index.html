@@ -2,30 +2,27 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Concert Map — Apple Edition</title>
+<title>Concert Map — Apple Clean</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css">
-
-<link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;600;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 
 <style>
 :root{
-  --bg: #f5f5f7;
-  --card: rgba(255,255,255,0.85);
-  --text: #111;
-  --accent: #007aff;
-  --blur: blur(20px);
+  --bg:#f5f5f7;
+  --card:rgba(255,255,255,.9);
+  --text:#111;
+  --accent:#007aff;
 }
 
 .dark{
   --bg:#0a0a0c;
-  --card: rgba(20,20,25,0.85);
+  --card:rgba(20,20,25,.9);
   --text:#fff;
 }
 
-*{box-sizing:border-box;font-family:SF Pro Display,system-ui;}
-
+*{box-sizing:border-box;font-family:Inter,system-ui;}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);}
 #map{height:100vh;}
 
@@ -34,7 +31,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);}
   top:20px;left:20px;
   width:320px;
   background:var(--card);
-  backdrop-filter:var(--blur);
+  backdrop-filter:blur(20px);
   border-radius:24px;
   padding:18px;
   box-shadow:0 20px 40px rgba(0,0,0,.25);
@@ -44,12 +41,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);}
 
 @keyframes slide{from{opacity:0;transform:translateY(30px)}}
 
-h1{
-  font-size:22px;
-  margin:0 0 10px;
-  font-weight:800;
-  letter-spacing:-.5px;
-}
+h1{font-size:22px;margin:0 0 10px;font-weight:800;letter-spacing:-.5px;}
 
 input,select,button{
   width:100%;
@@ -75,19 +67,8 @@ button:hover{opacity:.85}
 .row{display:flex;gap:10px;}
 .row button{flex:1}
 
-.stats{
-  text-align:center;
-  font-weight:800;
-  font-size:14px;
-  margin-top:8px;
-}
-
-.footer{
-  text-align:center;
-  font-size:11px;
-  opacity:.6;
-  margin-top:6px;
-}
+.stats{text-align:center;font-weight:800;font-size:14px;margin-top:8px;}
+.footer{text-align:center;font-size:11px;opacity:.6;margin-top:6px;}
 </style>
 </head>
 
@@ -145,17 +126,33 @@ map.addLayer(clusterGroup);
 
 let markers=[];
 
+/* CLEAN FILTER (NO ZOO) */
+const allowed=["concert","music","live","festival","club","theatre","théâtre","bar","venue","salle"];
+
 /* LOAD DATA */
 fetch(SHEET).then(r=>r.text()).then(t=>{
   const rows=t.replace(/\r/g,"").split("\n").slice(1);
+
   rows.forEach(r=>{
     const c=r.split("\t");
-    const name=c[0], city=c[1], zip=c[2];
-    const lat=parseFloat(c[4]), lon=parseFloat(c[5]);
-    const type=c[6]||"Salle";
-    const site=c[7], maps=c[8], desc=c[9];
+
+    const name=c[0];
+    const city=c[1];
+    const zip=c[2];
+    const lat=parseFloat(c[4]);
+    const lon=parseFloat(c[5]);
+    const type=(c[6]||"").toLowerCase();
+    const site=c[7];
+    const maps=c[8];
+    const desc=c[9];
 
     if(!lat||!lon||!name) return;
+
+    // 🧹 Anti-zoo / anti-nawak
+    if(
+      !allowed.some(k=>type.includes(k)) &&
+      !allowed.some(k=>name.toLowerCase().includes(k))
+    ) return;
 
     const isFestival=name.toLowerCase().includes("festival");
 
@@ -172,6 +169,7 @@ fetch(SHEET).then(r=>r.text()).then(t=>{
     m.data={name,city,zip,type};
     markers.push(m);
   });
+
   apply();
 });
 
@@ -196,7 +194,7 @@ function apply(){
       (d.zip||"").toLowerCase().includes(q);
 
     const typeMatch=
-      t==="all"||d.type.toLowerCase().includes(t);
+      t==="all"||d.type.includes(t)||d.name.toLowerCase().includes(t);
 
     if(textMatch&&typeMatch){
       visible++;
