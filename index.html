@@ -2,99 +2,38 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>🎵 Salles de concerts France</title>
+<title>🎵 Concert Map FR</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css">
-
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 
 <style>
-html, body {
-  margin: 0;
-  height: 100%;
-  font-family: "Inter", sans-serif;
-  background: #0b0b0f;
-}
-
-#map {
-  height: 100vh;
-}
+html, body { margin:0; height:100%; font-family:Inter; background:#0b0b0f; }
+#map { height:100vh; }
 
 #panel {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  width: 300px;
-  background: rgba(255,255,255,0.95);
-  backdrop-filter: blur(10px);
-  border-radius: 18px;
-  padding: 18px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-  z-index: 1000;
+  position:absolute; top:20px; right:20px; width:300px;
+  background:rgba(255,255,255,0.95);
+  border-radius:18px; padding:18px;
+  box-shadow:0 10px 30px rgba(0,0,0,.25);
+  z-index:1000;
 }
-
-#panel.dark {
-  background: rgba(15,15,20,0.95);
-  color: white;
-}
-
-h3 {
-  margin-top: 0;
-  font-weight: 800;
-  letter-spacing: -0.5px;
-}
+#panel.dark { background:rgba(15,15,20,.95); color:white; }
 
 input, select, button {
-  width: 100%;
-  padding: 10px;
-  margin-bottom: 10px;
-  border-radius: 10px;
-  border: none;
-  font-size: 14px;
-}
-
-input, select {
-  background: #f1f1f5;
-}
-
-#panel.dark input,
-#panel.dark select {
-  background: #1e1e28;
-  color: white;
+  width:100%; padding:10px; margin-bottom:10px;
+  border-radius:10px; border:none; font-size:14px;
 }
 
 button {
-  background: linear-gradient(135deg, #1db954, #0f9d58);
-  color: white;
-  font-weight: 700;
-  cursor: pointer;
-  transition: 0.2s;
+  background:linear-gradient(135deg,#1db954,#0f9d58);
+  color:white; font-weight:700; cursor:pointer;
 }
+.alt { background:#2563eb; }
 
-button:hover {
-  transform: scale(1.03);
-  opacity: 0.9;
-}
-
-.alt {
-  background: #2563eb;
-}
-
-.count {
-  text-align: center;
-  font-weight: 800;
-  font-size: 15px;
-  margin-top: 10px;
-}
-
-.footer {
-  font-size: 11px;
-  text-align: center;
-  opacity: 0.6;
-  margin-top: 10px;
-}
+.count { text-align:center; font-weight:800; }
 </style>
 </head>
 
@@ -107,11 +46,11 @@ button:hover {
 
   <select id="typeFilter">
     <option value="all">Tous les types</option>
-    <option value="Festival">Festivals</option>
-    <option value="Club">Clubs</option>
-    <option value="Théâtre">Théâtres</option>
-    <option value="Bar">Bars</option>
-    <option value="Salle">Salles</option>
+    <option value="festival">Festivals</option>
+    <option value="club">Clubs</option>
+    <option value="théâtre">Théâtres</option>
+    <option value="bar">Bars</option>
+    <option value="salle">Salles</option>
   </select>
 
   <button id="clusterToggle">Regroupement : ON</button>
@@ -119,8 +58,6 @@ button:hover {
   <button id="themeToggle">Mode clair / sombre</button>
 
   <div class="count" id="count">Salles : 0</div>
-
-  <div class="footer">Données OSM / Google Sheets</div>
 </div>
 
 <div id="map"></div>
@@ -129,78 +66,71 @@ button:hover {
 <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 
 <script>
-/* ===================== DATA ===================== */
 const SHEET = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT2-8LzIag6O728CHEJiDJe6qiDXaQ4hKJ7ddcyM_Z-r9_Wde39xX0_R7o9dn45VU500uFMacVkN-JJ/pub?output=tsv";
 
-/* ===================== MAP ===================== */
-const map = L.map("map", { zoomControl: false }).setView([46.8, 2.5], 4);
-
+/* MAP */
+const map = L.map("map").setView([46.8, 2.5], 4);
 const light = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png");
 const dark = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png");
-
 light.addTo(map);
+setTimeout(()=>map.setView([46.8,2.5],6),1200);
 
-// Animation zoom France
-setTimeout(() => map.setView([46.8, 2.5], 6), 1200);
+/* ICONS */
+const greenIcon = new L.Icon({ iconUrl:"https://maps.gstatic.com/mapfiles/ms2/micons/green-dot.png", iconSize:[32,32] });
+const redIcon = new L.Icon({ iconUrl:"https://maps.gstatic.com/mapfiles/ms2/micons/red-dot.png", iconSize:[32,32] });
 
-/* ===================== ICONS ===================== */
-const greenIcon = new L.Icon({
-  iconUrl: "https://maps.gstatic.com/mapfiles/ms2/micons/green-dot.png",
-  iconSize: [32, 32]
-});
-
-const redIcon = new L.Icon({
-  iconUrl: "https://maps.gstatic.com/mapfiles/ms2/micons/red-dot.png",
-  iconSize: [32, 32]
-});
-
-/* ===================== GROUPS ===================== */
-let clusterGroup = L.markerClusterGroup({ disableClusteringAtZoom: 13 });
+/* GROUPS */
+let clusterGroup = L.markerClusterGroup({ disableClusteringAtZoom:13 });
 let normalGroup = L.layerGroup();
 let useCluster = true;
-
 map.addLayer(clusterGroup);
 
-/* ===================== DATA ===================== */
+/* DATA */
 let allMarkers = [];
 
-/* ===================== LOAD ===================== */
-fetch(SHEET)
-  .then(r => r.text())
-  .then(text => {
-    const rows = text.replace(/\r/g, "").split("\n").slice(1);
+/* LOAD */
+fetch(SHEET).then(r=>r.text()).then(text=>{
+  const rows = text.replace(/\r/g,"").split("\n").slice(1);
 
-    rows.forEach(r => {
-      const c = r.split("\t");
+  rows.forEach(r=>{
+    const c = r.split("\t");
 
-      const name = c[0];
-      const city = c[1];
-      const zip = c[2];
-      const lat = parseFloat(c[4]);
-      const lon = parseFloat(c[5]);
-      const type = c[6] || "Salle";
+    const name = c[0];
+    const city = c[1];
+    const zip = c[2];
+    const lat = parseFloat(c[4]);
+    const lon = parseFloat(c[5]);
+    const type = c[6] || "Salle";
+    const website = c[7];
+    const maps = c[8];
+    const desc = c[9];
 
-      if (!lat || !lon || !name) return;
+    if(!lat || !lon || !name) return;
 
-      const isFestival = name.toLowerCase().includes("festival");
+    const isFestival = name.toLowerCase().includes("festival");
 
-      const marker = L.marker([lat, lon], {
-        icon: isFestival ? redIcon : greenIcon
-      }).bindPopup(`
-        <b>${name}</b><br>
-        ${city || ""} ${zip || ""}<br>
-        ${type}
-      `);
+    const popup = `
+      <b>${name}</b><br>
+      ${city || ""} ${zip || ""}<br>
+      ${type}<br><br>
+      ${desc ? desc+"<br>" : ""}
+      ${website ? `<a href="${website}" target="_blank">🌐 Site</a><br>` : ""}
+      ${maps ? `<a href="${maps}" target="_blank">📍 Google Maps</a>` : ""}
+    `;
 
-      marker.data = { name, city, zip, type, isFestival };
-      allMarkers.push(marker);
-    });
+    const marker = L.marker([lat,lon],{
+      icon: isFestival ? redIcon : greenIcon
+    }).bindPopup(popup);
 
-    applyFilters();
+    marker.data = { name, city, zip, type };
+    allMarkers.push(marker);
   });
 
-/* ===================== FILTERS ===================== */
-function applyFilters() {
+  applyFilters();
+});
+
+/* FILTERS */
+function applyFilters(){
   clusterGroup.clearLayers();
   normalGroup.clearLayers();
   map.removeLayer(clusterGroup);
@@ -211,19 +141,19 @@ function applyFilters() {
 
   let visible = 0;
 
-  allMarkers.forEach(m => {
+  allMarkers.forEach(m=>{
     const d = m.data;
 
     const matchText =
       d.name.toLowerCase().includes(q) ||
-      (d.city || "").toLowerCase().includes(q) ||
-      (d.zip || "").toLowerCase().includes(q);
+      (d.city||"").toLowerCase().includes(q) ||
+      (d.zip||"").toLowerCase().includes(q);
 
     const matchType =
       type === "all" ||
-      d.type.toLowerCase().includes(type.toLowerCase());
+      d.type.toLowerCase().includes(type);
 
-    if (matchText && matchType) {
+    if(matchText && matchType){
       visible++;
       useCluster ? clusterGroup.addLayer(m) : normalGroup.addLayer(m);
     }
@@ -233,50 +163,41 @@ function applyFilters() {
   count.innerText = "Salles : " + visible;
 }
 
-/* ===================== EVENTS ===================== */
 search.oninput = applyFilters;
 typeFilter.onchange = applyFilters;
 
 /* CLUSTER */
-clusterToggle.onclick = () => {
+clusterToggle.onclick = ()=>{
   useCluster = !useCluster;
-  clusterToggle.innerText = "Regroupement : " + (useCluster ? "ON" : "OFF");
+  clusterToggle.innerText = "Regroupement : " + (useCluster?"ON":"OFF");
   applyFilters();
 };
 
 /* THEME */
 let darkMode = false;
-themeToggle.onclick = () => {
+themeToggle.onclick = ()=>{
   darkMode = !darkMode;
-
-  map.removeLayer(darkMode ? light : dark);
-  (darkMode ? dark : light).addTo(map);
-
-  panel.classList.toggle("dark", darkMode);
+  map.removeLayer(darkMode?light:dark);
+  (darkMode?dark:light).addTo(map);
+  panel.classList.toggle("dark",darkMode);
 };
 
 /* GEOLOC */
 let locating = false;
 let userCircle = null;
 
-locateToggle.onclick = () => {
-  if (locating) {
+locateToggle.onclick = ()=>{
+  if(locating){
     map.removeLayer(userCircle);
     locating = false;
     locateToggle.innerText = "Autour de moi";
     return;
   }
 
-  navigator.geolocation.getCurrentPosition(pos => {
-    const { latitude, longitude } = pos.coords;
-
-    map.setView([latitude, longitude], 12);
-
-    userCircle = L.circle([latitude, longitude], {
-      radius: 5000,
-      color: "#2563eb"
-    }).addTo(map);
-
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const {latitude,longitude} = pos.coords;
+    map.setView([latitude,longitude],12);
+    userCircle = L.circle([latitude,longitude],{radius:5000,color:"#2563eb"}).addTo(map);
     locating = true;
     locateToggle.innerText = "Désactiver";
   });
