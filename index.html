@@ -5,13 +5,15 @@
 <title>Carte des salles de concert</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css">
 
 <style>
 body, html {
   margin: 0;
   height: 100%;
   font-family: "Segoe UI", Arial, sans-serif;
-  background: #f4f6fb;
+  background: #0f172a;
 }
 
 #map {
@@ -22,36 +24,39 @@ body, html {
   position: absolute;
   top: 16px;
   right: 16px;
-  background: white;
-  padding: 16px;
-  width: 280px;
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(10px);
+  padding: 18px;
+  width: 300px;
   z-index: 1000;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.15);
+  border-radius: 18px;
+  box-shadow: 0 20px 50px rgba(0,0,0,.3);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 #panel input,
 #panel select {
   width: 100%;
-  padding: 10px 12px;
-  border-radius: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
   border: 1px solid #ddd;
   font-size: 14px;
   outline: none;
+  background: #f9fafb;
 }
 
 #panel input:focus,
 #panel select:focus {
-  border-color: #1e88e5;
+  border-color: #3b82f6;
+  background: white;
 }
 
 button {
   width: 100%;
-  padding: 10px;
-  border-radius: 12px;
+  padding: 12px;
+  border-radius: 14px;
   border: none;
   font-weight: 600;
   cursor: pointer;
@@ -60,20 +65,27 @@ button {
 }
 
 #reset {
-  background: #eeeeee;
+  background: #e5e7eb;
 }
 
 #reset:hover {
-  background: #e0e0e0;
+  background: #d1d5db;
 }
 
 #france {
-  background: #1e88e5;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
   color: white;
 }
 
 #france:hover {
-  background: #1565c0;
+  opacity: 0.9;
+}
+
+h3 {
+  margin: 0;
+  font-size: 18px;
+  text-align: center;
+  color: #0f172a;
 }
 
 @media (max-width: 768px) {
@@ -83,7 +95,7 @@ button {
     left: 0;
     bottom: 0;
     top: auto;
-    border-radius: 16px 16px 0 0;
+    border-radius: 20px 20px 0 0;
   }
 
   #map {
@@ -96,6 +108,8 @@ button {
 <body>
 
 <div id="panel">
+  <h3>🎵 Salles de concert</h3>
+
   <input id="search" placeholder="🔍 Nom, ville, code postal">
 
   <select id="deptFilter">
@@ -109,6 +123,7 @@ button {
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 
 <script>
 const sheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRavscAmLL9ZPZiwxwRzsmsuCEDvcja-YAgg5F2vzAb5gHpUHVyJmCYKD2ONIBPdmwgBfjMg_Ayf3o8/pub?gid=1916022294&single=true&output=tsv";
@@ -116,8 +131,45 @@ const sheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRavscAmLL9ZPZ
 const map = L.map("map").setView([46.8, 2.5], 6);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
+// Clustering intelligent
+const cluster = L.markerClusterGroup({
+  disableClusteringAtZoom: 12,
+  spiderfyOnMaxZoom: true,
+  showCoverageOnHover: false
+});
+
 let markers = [];
 let departmentsSet = new Set();
+
+// Couleurs par région (approx via départements)
+const regionColors = {
+  "75": "#ef4444", // Paris
+  "13": "#f97316", // PACA
+  "69": "#3b82f6", // Lyon
+  "33": "#22c55e", // Bordeaux
+  "59": "#8b5cf6", // Nord
+  "31": "#06b6d4", // Toulouse
+  "44": "#eab308", // Nantes
+  "default": "#0ea5e9"
+};
+
+function getColor(dept) {
+  return regionColors[dept] || regionColors.default;
+}
+
+function createIcon(color) {
+  return L.divIcon({
+    className: "custom-pin",
+    html: `<div style="
+      width: 16px;
+      height: 16px;
+      background: ${color};
+      border-radius: 50%;
+      border: 3px solid white;
+      box-shadow: 0 0 10px rgba(0,0,0,.4);
+    "></div>`
+  });
+}
 
 fetch(sheetURL)
   .then(r => r.text())
@@ -141,17 +193,21 @@ fetch(sheetURL)
       if (isNaN(lat) || isNaN(lng)) return;
 
       const dept = zip.substring(0, 2);
+      const color = getColor(dept);
 
-      const m = L.marker([lat, lng])
-        .bindPopup(`<b>${name}</b><br>${city} ${zip}`)
-        .addTo(map);
+      const m = L.marker([lat, lng], {
+        icon: createIcon(color)
+      }).bindPopup(`<b>${name}</b><br>${city} ${zip}`);
 
       m.data = { name, city, zip, dept };
+
       markers.push(m);
       departmentsSet.add(dept);
+      cluster.addLayer(m);
     });
 
-    // Remplir la liste des départements
+    map.addLayer(cluster);
+
     const deptSelect = document.getElementById("deptFilter");
     [...departmentsSet].sort().forEach(d => {
       const opt = document.createElement("option");
@@ -159,13 +215,13 @@ fetch(sheetURL)
       opt.textContent = d;
       deptSelect.appendChild(opt);
     });
-
-    applyFilters();
   });
 
 function applyFilters() {
   const q = document.getElementById("search").value.toLowerCase();
   const dept = document.getElementById("deptFilter").value;
+
+  cluster.clearLayers();
 
   markers.forEach(m => {
     const d = m.data;
@@ -178,9 +234,7 @@ function applyFilters() {
     const matchDept = (dept === "all" || d.dept === dept);
 
     if (matchText && matchDept) {
-      m.addTo(map);
-    } else {
-      map.removeLayer(m);
+      cluster.addLayer(m);
     }
   });
 }
@@ -188,14 +242,13 @@ function applyFilters() {
 document.getElementById("search").addEventListener("input", applyFilters);
 document.getElementById("deptFilter").addEventListener("change", applyFilters);
 
-// Reset filtres
 document.getElementById("reset").addEventListener("click", () => {
   document.getElementById("search").value = "";
   document.getElementById("deptFilter").value = "all";
-  markers.forEach(m => m.addTo(map));
+  cluster.clearLayers();
+  markers.forEach(m => cluster.addLayer(m));
 });
 
-// Vue France
 document.getElementById("france").addEventListener("click", () => {
   map.setView([46.8, 2.5], 6);
 });
