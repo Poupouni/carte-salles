@@ -64,21 +64,19 @@ button{background:#007aff;color:white;font-weight:700;cursor:pointer}
 <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 
 <script>
-const SHEET="https://docs.google.com/spreadsheets/d/e/2PACX-1vT2-8LzIag6O728CHEJiDJe6qiDXaQ4hKJ7ddcyM_Z-r9_Wde39xX0_R7o9dn45VU500uFMacVkN-JJ/pub?output=tsv";
+/* ===== TES 2 GOOGLE SHEETS ===== */
+const SHEETS = [
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vRavscAmLL9ZPZiwxwRzsmsuCEDvcja-YAgg5F2vzAb5gHpUHVyJmCYKD2ONIBPdmwgBfjMg_Ayf3o8/pub?output=tsv",
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vT2-8LzIag6O728CHEJiDJe6qiDXaQ4hKJ7ddcyM_Z-r9_Wde39xX0_R7o9dn45VU500uFMacVkN-JJ/pub?output=tsv"
+];
 
 /* MAP */
 const map=L.map("map").setView([46.8,2.5],4);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
 /* ICONS */
-const green=L.icon({
-  iconUrl:"https://maps.gstatic.com/mapfiles/ms2/micons/green-dot.png",
-  iconSize:[32,32]
-});
-const red=L.icon({
-  iconUrl:"https://maps.gstatic.com/mapfiles/ms2/micons/red-dot.png",
-  iconSize:[32,32]
-});
+const green=L.icon({iconUrl:"https://maps.gstatic.com/mapfiles/ms2/micons/green-dot.png",iconSize:[32,32]});
+const red=L.icon({iconUrl:"https://maps.gstatic.com/mapfiles/ms2/micons/red-dot.png",iconSize:[32,32]});
 
 /* CLUSTER */
 const clusterGroup=L.markerClusterGroup({disableClusteringAtZoom:13});
@@ -101,54 +99,53 @@ const trash=[
   "ours","chèvre","mangabey","flamant","porc","lama"
 ];
 
-/* LOAD */
-fetch(SHEET).then(r=>r.text()).then(t=>{
-  const rows=t.replace(/\r/g,"").split("\n").slice(1);
+/* LOAD BOTH SHEETS */
+SHEETS.forEach(sheet=>{
+  fetch(sheet).then(r=>r.text()).then(t=>{
+    const rows=t.replace(/\r/g,"").split("\n").slice(1);
 
-  rows.forEach(r=>{
-    const c=r.split("\t");
+    rows.forEach(r=>{
+      const c=r.split("\t");
 
-    const name=c[0];
-    const city=c[1];
-    const zip=c[2];
-    const lat=parseFloat(c[4]);
-    const lon=parseFloat(c[5]);
-    const type=(c[6]||"").toLowerCase();
-    const site=c[7];
-    const desc=c[9];
+      const name=c[0];
+      const city=c[1];
+      const zip=c[2];
+      const lat=parseFloat(c[4]);
+      const lon=parseFloat(c[5]);
+      const type=(c[6]||"").toLowerCase();
+      const site=c[7];
+      const desc=c[9];
 
-    if(!lat||!lon||!name) return;
+      if(!lat||!lon||!name) return;
 
-    const n=name.toLowerCase();
+      const n=name.toLowerCase();
 
-    // ❌ POUBELLE
-    if(trash.some(w=>n.includes(w)||type.includes(w))) return;
+      if(trash.some(w=>n.includes(w)||type.includes(w))) return;
+      if(!musicOnly.some(w=>n.includes(w)||type.includes(w))) return;
 
-    // ✅ MUSIQUE ONLY
-    if(!musicOnly.some(w=>n.includes(w)||type.includes(w))) return;
+      const isFestival=n.includes("festival");
+      const mapsLink=`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
 
-    const isFestival=n.includes("festival");
-    const mapsLink=`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+      const popup=`
+        <b>${name}</b><br>
+        ${city||""} ${zip||""}<br>
+        ${type || "Lieu de concert"}<br><br>
 
-    const popup=`
-      <b>${name}</b><br>
-      ${city||""} ${zip||""}<br>
-      ${type || "Lieu de concert"}<br><br>
+        ${desc ? `<i>${desc}</i><br><br>` : ""}
 
-      ${desc ? `<i>${desc}</i><br><br>` : ""}
+        <a href="${mapsLink}" target="_blank">📍 Google Maps</a><br>
+        ${site ? `<a href="${site}" target="_blank">🌐 Site officiel</a>` : ""}
+      `;
 
-      <a href="${mapsLink}" target="_blank">📍 Google Maps</a><br>
-      ${site ? `<a href="${site}" target="_blank">🌐 Site officiel</a>` : ""}
-    `;
+      const m=L.marker([lat,lon],{icon:isFestival?red:green})
+        .bindPopup(popup);
 
-    const m=L.marker([lat,lon],{icon:isFestival?red:green})
-      .bindPopup(popup);
+      m.data={name,city,zip,type};
+      markers.push(m);
+    });
 
-    m.data={name,city,zip,type};
-    markers.push(m);
+    apply();
   });
-
-  apply();
 });
 
 /* FILTER */
