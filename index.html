@@ -14,7 +14,7 @@
   --panel: rgba(20,24,38,0.95);
   --text: white;
   --input: #1c2033;
-  --accent: #22c55e;
+  --blue: #2563eb;
 }
 
 .light {
@@ -22,7 +22,6 @@
   --panel: white;
   --text: #0b0f1a;
   --input: #f1f5f9;
-  --accent: #2563eb;
 }
 
 body, html {
@@ -31,7 +30,6 @@ body, html {
   font-family: "Segoe UI", Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
-  transition: background .3s;
 }
 
 #map { height: 100vh; }
@@ -73,13 +71,12 @@ button {
   font-weight: 600;
   cursor: pointer;
   font-size: 14px;
+  background: var(--blue);
+  color: white;
   transition: .2s;
 }
 
-#france { background: linear-gradient(135deg, #22c55e, #16a34a); color: black; }
-#nearMe { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; }
-#reset { background: #2a2f45; color: white; }
-#themeToggle { background: var(--accent); color: white; }
+button:hover { opacity: 0.9; }
 
 h3 { margin: 0; font-size: 18px; text-align: center; }
 
@@ -109,6 +106,7 @@ h3 { margin: 0; font-size: 18px; text-align: center; }
   </select>
 
   <button id="nearMe">📍 Autour de moi</button>
+  <button id="toggleCluster">🗺️ Désactiver regroupement</button>
   <button id="france">Vue France</button>
   <button id="reset">Reset filtres</button>
   <button id="themeToggle">🌗 Mode clair / sombre</button>
@@ -122,8 +120,8 @@ h3 { margin: 0; font-size: 18px; text-align: center; }
 <script>
 const sheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRavscAmLL9ZPZiwxwRzsmsuCEDvcja-YAgg5F2vzAb5gHpUHVyJmCYKD2ONIBPdmwgBfjMg_Ayf3o8/pub?gid=1916022294&single=true&output=tsv";
 
-// Carte sombre par défaut
 let darkMode = true;
+let clusteringEnabled = true;
 
 const darkTiles = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
 const lightTiles = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
@@ -131,12 +129,12 @@ const lightTiles = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 const map = L.map("map").setView([0, 0], 2);
 let tileLayer = L.tileLayer(darkTiles).addTo(map);
 
-// Animation GTA-style
+// Animation GTA
 setTimeout(() => {
   map.flyTo([46.8, 2.5], 6, { duration: 1.5 });
 }, 500);
 
-// Clustering
+// Cluster
 const cluster = L.markerClusterGroup({
   disableClusteringAtZoom: 12,
   showCoverageOnHover: false
@@ -145,7 +143,6 @@ const cluster = L.markerClusterGroup({
 let markers = [];
 let departmentsSet = new Set();
 
-// Pins
 function createIcon(color) {
   return L.divIcon({
     className: "custom-pin",
@@ -182,7 +179,6 @@ fetch(sheetURL)
       if (isNaN(lat) || isNaN(lng)) return;
 
       const dept = zip.substring(0, 2);
-
       const isFestival = /festival|festivale|fest/i.test(name);
       const color = isFestival ? "#ef4444" : "#22c55e";
 
@@ -208,11 +204,22 @@ fetch(sheetURL)
     });
   });
 
+function refreshMap() {
+  if (clusteringEnabled) {
+    map.removeLayer(cluster);
+    markers.forEach(m => cluster.addLayer(m));
+    map.addLayer(cluster);
+  } else {
+    map.removeLayer(cluster);
+    markers.forEach(m => m.addTo(map));
+  }
+}
+
 function applyFilters() {
   const q = document.getElementById("search").value.toLowerCase();
   const dept = document.getElementById("deptFilter").value;
 
-  cluster.clearLayers();
+  if (clusteringEnabled) cluster.clearLayers();
 
   markers.forEach(m => {
     const d = m.data;
@@ -224,7 +231,11 @@ function applyFilters() {
 
     const matchDept = (dept === "all" || d.dept === dept);
 
-    if (matchText && matchDept) cluster.addLayer(m);
+    if (matchText && matchDept) {
+      clusteringEnabled ? cluster.addLayer(m) : m.addTo(map);
+    } else {
+      map.removeLayer(m);
+    }
   });
 }
 
@@ -234,8 +245,17 @@ document.getElementById("deptFilter").addEventListener("change", applyFilters);
 document.getElementById("reset").addEventListener("click", () => {
   document.getElementById("search").value = "";
   document.getElementById("deptFilter").value = "all";
-  cluster.clearLayers();
-  markers.forEach(m => cluster.addLayer(m));
+  refreshMap();
+});
+
+// Toggle clustering
+document.getElementById("toggleCluster").addEventListener("click", () => {
+  clusteringEnabled = !clusteringEnabled;
+
+  document.getElementById("toggleCluster").textContent =
+    clusteringEnabled ? "🗺️ Désactiver regroupement" : "🗺️ Activer regroupement";
+
+  refreshMap();
 });
 
 // Autour de moi
@@ -244,7 +264,7 @@ document.getElementById("nearMe").addEventListener("click", () => {
     const lat = pos.coords.latitude;
     const lng = pos.coords.longitude;
     map.setView([lat, lng], 12);
-    L.circle([lat, lng], { radius: 5000, color: "#3b82f6" }).addTo(map);
+    L.circle([lat, lng], { radius: 5000, color: "#2563eb" }).addTo(map);
   });
 });
 
@@ -253,7 +273,7 @@ document.getElementById("france").addEventListener("click", () => {
   map.flyTo([46.8, 2.5], 6, { duration: 1 });
 });
 
-// Mode sombre / clair
+// Dark / Light
 document.getElementById("themeToggle").addEventListener("click", () => {
   darkMode = !darkMode;
   document.body.classList.toggle("light");
