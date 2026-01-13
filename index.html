@@ -28,9 +28,6 @@ input,select,button{
 }
 
 button{background:#007aff;color:white;font-weight:700;cursor:pointer}
-.row{display:flex;gap:8px}
-.row button{flex:1}
-
 .stats{text-align:center;font-weight:800}
 .footer{text-align:center;font-size:11px;opacity:.6}
 </style>
@@ -64,7 +61,7 @@ button{background:#007aff;color:white;font-weight:700;cursor:pointer}
 <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 
 <script>
-/* ===== TES 2 GOOGLE SHEETS ===== */
+/* TES DEUX SHEETS */
 const SHEETS = [
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vRavscAmLL9ZPZiwxwRzsmsuCEDvcja-YAgg5F2vzAb5gHpUHVyJmCYKD2ONIBPdmwgBfjMg_Ayf3o8/pub?output=tsv",
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vT2-8LzIag6O728CHEJiDJe6qiDXaQ4hKJ7ddcyM_Z-r9_Wde39xX0_R7o9dn45VU500uFMacVkN-JJ/pub?output=tsv"
@@ -99,7 +96,7 @@ const trash=[
   "ours","chèvre","mangabey","flamant","porc","lama"
 ];
 
-/* LOAD BOTH SHEETS */
+/* LOAD DES 2 SHEETS */
 SHEETS.forEach(sheet=>{
   fetch(sheet).then(r=>r.text()).then(t=>{
     const rows=t.replace(/\r/g,"").split("\n").slice(1);
@@ -130,9 +127,7 @@ SHEETS.forEach(sheet=>{
         <b>${name}</b><br>
         ${city||""} ${zip||""}<br>
         ${type || "Lieu de concert"}<br><br>
-
         ${desc ? `<i>${desc}</i><br><br>` : ""}
-
         <a href="${mapsLink}" target="_blank">📍 Google Maps</a><br>
         ${site ? `<a href="${site}" target="_blank">🌐 Site officiel</a>` : ""}
       `;
