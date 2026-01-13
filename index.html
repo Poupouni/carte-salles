@@ -2,60 +2,73 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Salles de concerts</title>
+<title>Salles de concerts - France</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
 
 <style>
-body, html { margin:0; height:100%; font-family: Arial; }
+body, html { margin:0; height:100%; font-family: Arial; background:#f5f7fb; }
 #map { height:100vh; }
 
 #panel {
   position:absolute;
-  top:15px;
-  right:15px;
+  top:20px;
+  right:20px;
   background:white;
-  padding:15px;
+  padding:16px;
   width:280px;
   z-index:1000;
-  border-radius:14px;
-  box-shadow:0 8px 25px rgba(0,0,0,.2);
+  border-radius:16px;
+  box-shadow:0 10px 30px rgba(0,0,0,.15);
 }
 
 input, select, button {
   width:100%;
   padding:10px;
   margin-bottom:8px;
-  border-radius:8px;
-  border:none;
+  border-radius:10px;
+  border:1px solid #ddd;
   font-size:14px;
 }
 
 button {
-  background:#1e88ff;
+  background:#2563eb;
   color:white;
+  border:none;
   cursor:pointer;
   font-weight:bold;
 }
 
-button:hover { background:#1565cc; }
+button:hover { opacity:0.9; }
 
-.mode-dark {
-  background:#121212;
-  color:white;
+.filter-row {
+  display:flex;
+  gap:6px;
 }
 
-.mode-dark #panel {
-  background:#1c1c1c;
-  color:white;
+.filter-row button {
+  flex:1;
+  font-size:13px;
 }
 
 #count {
   text-align:center;
   font-weight:bold;
-  margin-top:8px;
+  margin-top:10px;
+}
+
+.dark {
+  background:#0f172a;
+  color:white;
+}
+
+.dark #panel { background:#111827; }
+.dark input, .dark select {
+  background:#1f2937;
+  color:white;
+  border:1px solid #374151;
 }
 </style>
 </head>
@@ -63,14 +76,28 @@ button:hover { background:#1565cc; }
 <body>
 
 <div id="panel">
+  <h3>🎵 Salles de concerts</h3>
+
   <input id="search" placeholder="Nom, ville, code postal">
 
   <select id="department">
     <option value="all">Tous les départements</option>
   </select>
 
-  <button id="reset">Reset filtres</button>
-  <button id="france">Vue France</button>
+  <div class="filter-row">
+    <button onclick="setType('all')">Tout</button>
+    <button onclick="setType('Festival')">Festivals</button>
+  </div>
+
+  <div class="filter-row">
+    <button onclick="setType('Salle')">Salles</button>
+    <button onclick="setType('Club')">Clubs</button>
+  </div>
+
+  <div class="filter-row">
+    <button onclick="setType('Théâtre')">Théâtres</button>
+  </div>
+
   <button id="toggleCluster">Regroupement : ON</button>
   <button id="nearMe">Autour de moi</button>
   <button id="toggleTheme">Mode clair / sombre</button>
@@ -84,31 +111,27 @@ button:hover { background:#1565cc; }
 <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 
 <script>
-const sheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRavscAmLL9ZPZiwxwRzsmsuCEDvcja-YAgg5F2vzAb5gHpUHVyJmCYKD2ONIBPdmwgBfjMg_Ayf3o8/pub?gid=1916022294&single=true&output=tsv";
+const sheetURL = "https://docs.google.com/spreadsheets/d/1BG7YUnUAKxVkN-wqnyPln0A5AGxcGVX67ABlYSs5V3c/gviz/tq?tqx=out:tsv";
 
-const map = L.map("map").setView([46.8, 2.5], 4);
+const map = L.map("map").setView([20, 0], 2);
 
-const lightMap = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png");
-const darkMap = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png");
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
-lightMap.addTo(map);
+// Animation GTA zoom
+setTimeout(() => {
+  map.setView([46.8, 2.5], 6, { animate:true, duration:1.5 });
+}, 500);
 
 let markers = [];
-let cluster = L.markerClusterGroup();
+let markerLayer = L.markerClusterGroup();
 let clusteringEnabled = true;
-let darkMode = false;
-
-const festivalIcon = L.divIcon({
-  className: "festival-pin",
-  html: "<div style='background:red;width:14px;height:14px;border-radius:50%;border:2px solid white'></div>"
-});
-
-const normalIcon = L.divIcon({
-  className: "normal-pin",
-  html: "<div style='background:#1e88ff;width:14px;height:14px;border-radius:50%;border:2px solid white'></div>"
-});
-
+let currentType = "all";
 let departmentsSet = new Set();
+
+const icons = {
+  default: L.divIcon({ className:'', html:'<div style="background:#22c55e;width:14px;height:14px;border-radius:50%;border:2px solid white"></div>' }),
+  festival: L.divIcon({ className:'', html:'<div style="background:#ef4444;width:14px;height:14px;border-radius:50%;border:2px solid white"></div>' })
+};
 
 fetch(sheetURL)
   .then(r => r.text())
@@ -116,43 +139,46 @@ fetch(sheetURL)
     const rows = text.replace(/\r/g,"").split("\n").slice(1);
 
     rows.forEach(row => {
-      const cols = row.split("\t");
+      const c = row.split("\t");
 
-      const name = cols[0];
-      const city = cols[1];
-      const zip = cols[2];
-      const lat = parseFloat(cols[5]);
-      const lng = parseFloat(cols[6]);
+      const name = c[0] || "";
+      const city = c[1] || "";
+      const zip = c[2] || "";
+      const lat = parseFloat(c[4]);
+      const lng = parseFloat(c[5]);
+      const type = c[6] || "Salle";
 
-      if (!lat || !lng || !zip) return;
+      if (!lat || !lng) return;
 
       const dept = zip.substring(0,2);
       departmentsSet.add(dept);
 
-      const isFestival = /festival/i.test(name);
+      const isFestival = name.toLowerCase().includes("festival");
 
-      const marker = L.marker([lat, lng], {
-        icon: isFestival ? festivalIcon : normalIcon
-      }).bindPopup(`<b>${name}</b><br>${city} ${zip}`);
+      const m = L.marker([lat,lng], {
+        icon: isFestival ? icons.festival : icons.default
+      }).bindPopup(`<b>${name}</b><br>${city} ${zip}<br>${type}`);
 
-      marker.data = { name, city, zip, dept };
+      m.data = { name, city, zip, dept, type };
 
-      markers.push(marker);
-      cluster.addLayer(marker);
+      markers.push(m);
+      markerLayer.addLayer(m);
     });
 
-    map.addLayer(cluster);
-
-    const deptSelect = document.getElementById("department");
-    [...departmentsSet].sort().forEach(d => {
-      const opt = document.createElement("option");
-      opt.value = d;
-      opt.textContent = d;
-      deptSelect.appendChild(opt);
-    });
-
-    updateCount(markers.length);
+    map.addLayer(markerLayer);
+    fillDepartments();
+    applyFilters();
   });
+
+function fillDepartments() {
+  const select = document.getElementById("department");
+  [...departmentsSet].sort().forEach(d => {
+    const opt = document.createElement("option");
+    opt.value = d;
+    opt.textContent = d;
+    select.appendChild(opt);
+  });
+}
 
 function updateCount(n) {
   document.getElementById("count").innerText = "Salles : " + n;
@@ -162,9 +188,9 @@ function applyFilters() {
   const q = document.getElementById("search").value.toLowerCase();
   const dept = document.getElementById("department").value;
 
-  let visible = 0;
+  markerLayer.clearLayers();
 
-  cluster.clearLayers();
+  let visible = 0;
 
   markers.forEach(m => {
     const d = m.data;
@@ -172,84 +198,63 @@ function applyFilters() {
     const matchText =
       d.name.toLowerCase().includes(q) ||
       d.city.toLowerCase().includes(q) ||
-      d.zip.toLowerCase().includes(q);
+      d.zip.includes(q);
 
     const matchDept = (dept === "all" || d.dept === dept);
+    const matchType = (currentType === "all" || d.type === currentType || 
+                      (currentType === "Festival" && d.name.toLowerCase().includes("festival")));
 
-    if (matchText && matchDept) {
+    if (matchText && matchDept && matchType) {
+      markerLayer.addLayer(m);
       visible++;
-      cluster.addLayer(m);
     }
   });
 
   updateCount(visible);
 }
 
-document.getElementById("search").oninput = applyFilters;
-document.getElementById("department").onchange = applyFilters;
-
-document.getElementById("reset").onclick = () => {
-  document.getElementById("search").value = "";
-  document.getElementById("department").value = "all";
+function setType(type) {
+  currentType = type;
   applyFilters();
-};
+}
 
-document.getElementById("france").onclick = () => {
-  map.flyTo([46.8, 2.5], 6, { duration: 1.5 });
-};
+document.getElementById("search").addEventListener("input", applyFilters);
+document.getElementById("department").addEventListener("change", applyFilters);
 
-document.getElementById("toggleCluster").onclick = () => {
+// Toggle clustering
+document.getElementById("toggleCluster").addEventListener("click", () => {
   clusteringEnabled = !clusteringEnabled;
 
-  map.removeLayer(cluster);
-  markers.forEach(m => map.removeLayer(m));
+  map.removeLayer(markerLayer);
 
   if (clusteringEnabled) {
-    cluster.clearLayers();
-    markers.forEach(m => cluster.addLayer(m));
-    map.addLayer(cluster);
+    markerLayer = L.markerClusterGroup();
   } else {
-    markers.forEach(m => m.addTo(map));
+    markerLayer = L.layerGroup();
   }
 
-  document.getElementById("toggleCluster").textContent =
-    clusteringEnabled ? "Regroupement : ON" : "Regroupement : OFF";
-};
+  markers.forEach(m => markerLayer.addLayer(m));
+  map.addLayer(markerLayer);
 
-document.getElementById("toggleTheme").onclick = () => {
-  darkMode = !darkMode;
-  if (darkMode) {
-    map.removeLayer(lightMap);
-    darkMap.addTo(map);
-    document.body.classList.add("mode-dark");
-  } else {
-    map.removeLayer(darkMap);
-    lightMap.addTo(map);
-    document.body.classList.remove("mode-dark");
-  }
-};
+  document.getElementById("toggleCluster").innerText =
+    "Regroupement : " + (clusteringEnabled ? "ON" : "OFF");
 
-document.getElementById("nearMe").onclick = () => {
-  if (!navigator.geolocation) return alert("Géolocalisation non supportée");
+  applyFilters();
+});
 
+// Autour de moi
+document.getElementById("nearMe").addEventListener("click", () => {
   navigator.geolocation.getCurrentPosition(pos => {
-    const { latitude, longitude } = pos.coords;
-    map.flyTo([latitude, longitude], 12, { duration: 1.5 });
-
-    const circle = L.circle([latitude, longitude], {
-      radius: 20000,
-      color: "#1e88ff"
-    }).addTo(map);
-
-    setTimeout(() => map.removeLayer(circle), 5000);
+    const lat = pos.coords.latitude;
+    const lon = pos.coords.longitude;
+    map.setView([lat, lon], 12);
   });
-};
+});
 
-// Animation d’intro style GTA
-setTimeout(() => {
-  map.flyTo([46.8, 2.5], 6, { duration: 1.5 });
-}, 500);
-
+// Dark mode
+document.getElementById("toggleTheme").addEventListener("click", () => {
+  document.body.classList.toggle("dark");
+});
 </script>
 
 </body>
