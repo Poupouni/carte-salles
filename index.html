@@ -76,22 +76,6 @@ button {
   background: #1565c0;
 }
 
-#count {
-  margin-top: 6px;
-  padding: 10px;
-  border-radius: 12px;
-  background: #f1f5ff;
-  font-weight: bold;
-  text-align: center;
-  color: #1e88e5;
-}
-
-h4 {
-  margin: 8px 0 4px;
-  font-size: 14px;
-  color: #444;
-}
-
 @media (max-width: 768px) {
   #panel {
     width: 100%;
@@ -107,7 +91,6 @@ h4 {
   }
 }
 </style>
-
 </head>
 
 <body>
@@ -121,7 +104,6 @@ h4 {
 
   <button id="reset">Reset filtres</button>
   <button id="france">Vue France</button>
-
 </div>
 
 <div id="map"></div>
@@ -141,11 +123,11 @@ fetch(sheetURL)
   .then(r => r.text())
   .then(text => {
     const rows = text
-  .replace(/\r/g, "")
-  .replace(/"\n/g, " ")
-  .replace(/\n"/g, " ")
-  .split("\n")
-  .slice(1);
+      .replace(/\r/g, "")
+      .replace(/"\n/g, " ")
+      .replace(/\n"/g, " ")
+      .split("\n")
+      .slice(1);
 
     rows.forEach(row => {
       const cols = row.split("\t");
@@ -170,7 +152,7 @@ fetch(sheetURL)
     });
 
     // Remplir la liste des départements
-    const deptSelect = document.getElementById("department");
+    const deptSelect = document.getElementById("deptFilter");
     [...departmentsSet].sort().forEach(d => {
       const opt = document.createElement("option");
       opt.value = d;
@@ -181,13 +163,9 @@ fetch(sheetURL)
     applyFilters();
   });
 
-}
-
 function applyFilters() {
   const q = document.getElementById("search").value.toLowerCase();
-  const dept = document.getElementById("department").value;
-
-  let visible = 0;
+  const dept = document.getElementById("deptFilter").value;
 
   markers.forEach(m => {
     const d = m.data;
@@ -201,24 +179,20 @@ function applyFilters() {
 
     if (matchText && matchDept) {
       m.addTo(map);
-      visible++;
     } else {
       map.removeLayer(m);
     }
   });
-
 }
 
 document.getElementById("search").addEventListener("input", applyFilters);
-document.getElementById("department").addEventListener("change", applyFilters);
+document.getElementById("deptFilter").addEventListener("change", applyFilters);
 
 // Reset filtres
 document.getElementById("reset").addEventListener("click", () => {
   document.getElementById("search").value = "";
-  document.getElementById("department").value = "all";
-
+  document.getElementById("deptFilter").value = "all";
   markers.forEach(m => m.addTo(map));
-  updateCount(markers.length);
 });
 
 // Vue France
